@@ -1,0 +1,3 @@
+[submodule "Sources/CAVDECC/avdecc"]
+	path = Sources/CAVDECC/avdecc
+	url = https://github.com/L-Acoustics/avdecc.git
