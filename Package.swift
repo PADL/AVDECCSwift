@@ -125,9 +125,16 @@ let package = Package(
                 "avdecc/scripts",
                 "avdecc/tests",
             ],
+            cSettings: [
+                .unsafeFlags(["-I", "/opt/swift/usr/lib/swift"]),
+            ],
+            cxxSettings: [
+                .unsafeFlags(["-I", "/opt/swift/usr/lib/swift"]),
+            ],
             linkerSettings: [
                 .linkedLibrary("la_avdecc_c-d"),
                 .linkedLibrary("la_avdecc_cxx-d"),
+                .linkedLibrary("BlocksRuntime"),
                 .unsafeFlags(AvdeccUnsafeLinkerFlags)
             ]
         ),

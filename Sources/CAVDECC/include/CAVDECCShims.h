@@ -1,0 +1,8 @@
+#pragma once
+
+#include "../avdecc/include/la/avdecc/avdecc.h"
+
+typedef void(LA_AVDECC_BINDINGS_C_CALL_CONVENTION ^ avdecc_protocol_interfaces_send_acmp_command_block)(avdecc_protocol_acmpdu_cp const response, avdecc_protocol_interface_error_t const error);
+
+LA_AVDECC_BINDINGS_C_API avdecc_protocol_interface_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_ProtocolInterface_sendAcmpCommand_Block(LA_AVDECC_PROTOCOL_INTERFACE_HANDLE const handle, avdecc_protocol_acmpdu_cp const acmpdu, avdecc_protocol_interfaces_send_acmp_command_block const onResult);
+
