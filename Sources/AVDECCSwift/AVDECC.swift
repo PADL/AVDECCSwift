@@ -7,12 +7,12 @@
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * AVDECCSwift is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU Lesser General Public License
  * along with AVDECCSwift.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -30,7 +30,7 @@ extension UnsafePointer {
 
 public extension avdecc_entity_t {
     func forEachInterface(_ block: (avdecc_entity_interface_information_cp) throws -> ()) rethrows {
-        var interfaces_information = self.interfaces_information
+        var interfaces_information = interfaces_information
         try withUnsafePointer(to: &interfaces_information) { first in
             var next = first.pointee.next
 
@@ -41,22 +41,22 @@ public extension avdecc_entity_t {
                 next = next?.pointee.next
             }
         }
-    } 
+    }
 }
 
 public extension avdecc_entity_model_entity_descriptor_s {
     var entityName: String {
         String(avdeccFixedString: entity_name)
     }
-    
+
     var firmwareVersion: String {
         String(avdeccFixedString: firmware_version)
     }
-    
+
     var groupName: String {
         String(avdeccFixedString: group_name)
     }
-    
+
     var serialNumber: String {
         String(avdeccFixedString: serial_number)
     }
@@ -82,8 +82,8 @@ extension avdecc_entity_model_memory_object_descriptor_s: ObjectNameable {}
 extension avdecc_entity_model_audio_cluster_descriptor_s: ObjectNameable {}
 extension avdecc_entity_model_clock_domain_descriptor_s: ObjectNameable {}
 
-extension avdecc_entity_model_locale_descriptor_s {
-    public var localeID: String {
+public extension avdecc_entity_model_locale_descriptor_s {
+    var localeID: String {
         String(avdeccFixedString: locale_id)
     }
 }
@@ -170,7 +170,7 @@ func withProtocolInterfaceError(_ block: () -> avdecc_protocol_interface_error_t
 extension CheckedContinuation where T == avdecc_protocol_acmpdu_t, E == any Error {
     func resume(throwing err: avdecc_protocol_interface_error_t) {
         let pie = ProtocolInterfaceError(rawValue: err) ?? .internalError
-        self.resume(throwing: pie)
+        resume(throwing: pie)
     }
 }
 
@@ -203,10 +203,18 @@ public final class ProtocolInterface {
         }
     }
 
-    public func sendAcmpCommand(_ pdu: avdecc_protocol_acmpdu_t) async throws -> avdecc_protocol_acmpdu_t {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<avdecc_protocol_acmpdu_t, Error>) in
+    public func sendAcmpCommand(_ pdu: avdecc_protocol_acmpdu_t) async throws
+        -> avdecc_protocol_acmpdu_t
+    {
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
+            avdecc_protocol_acmpdu_t,
+            Error
+        >) in
             var pdu = pdu
-            let err = LA_AVDECC_ProtocolInterface_sendAcmpCommand_Block(self?.handle, &pdu) { response, err in
+            let err = LA_AVDECC_ProtocolInterface_sendAcmpCommand_Block(
+                self?.handle,
+                &pdu
+            ) { response, err in
                 guard err != 0 else {
                     continuation.resume(throwing: err)
                     return
@@ -236,7 +244,7 @@ func withLocalEntityError(_ block: () -> avdecc_local_entity_error_t) throws {
 }
 
 public final class LocalEntity {
-    var delegate: avdecc_local_entity_controller_delegate_p? = nil
+    var delegate: avdecc_local_entity_controller_delegate_p?
     var handle: UnsafeMutableRawPointer!
 
     public init(protocolInterface: ProtocolInterface, entity: avdecc_entity_t) throws {

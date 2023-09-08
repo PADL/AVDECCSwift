@@ -3,7 +3,7 @@
 import Foundation
 import PackageDescription
 
-// FIXME make BuildConfigurationurable
+// FIXME: make BuildConfigurationurable
 let BuildConfiguration = "debug"
 
 let Platform: String
@@ -39,7 +39,7 @@ let AvdeccUnsafeLinkerFlags: [String] = [
     "-Xlinker", "-rpath", "-Xlinker", AvdeccCxxControllerLibPath,
     "-Xlinker", "-L", "-Xlinker", AvdeccAltLibPath,
     "-Xlinker", "-rpath", "-Xlinker", AvdeccAltLibPath,
-]           
+]
 
 let package = Package(
     name: "AVDECCSwift",
@@ -56,7 +56,7 @@ let package = Package(
         .executableTarget(
             name: "AVDECCTest",
             dependencies: [
-                "AVDECCSwift"
+                "AVDECCSwift",
             ],
             path: "Examples/AVDECCTest"
         ),
@@ -67,7 +67,7 @@ let package = Package(
         .target(
             name: "CAVDECC",
             dependencies: [
-                "avdecc"
+                "avdecc",
             ],
             exclude: [
                 AvdeccBuildDir,
@@ -135,7 +135,7 @@ let package = Package(
                 .linkedLibrary("la_avdecc_c-d"),
                 .linkedLibrary("la_avdecc_cxx-d"),
                 .linkedLibrary("BlocksRuntime"),
-                .unsafeFlags(AvdeccUnsafeLinkerFlags)
+                .unsafeFlags(AvdeccUnsafeLinkerFlags),
             ]
         ),
         .target(
@@ -143,7 +143,7 @@ let package = Package(
             dependencies: [
                 "CAVDECC",
             ]
-        )
+        ),
     ],
     cLanguageStandard: .c17,
     cxxLanguageStandard: .cxx17
