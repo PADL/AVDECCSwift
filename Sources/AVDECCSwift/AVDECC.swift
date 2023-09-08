@@ -88,8 +88,8 @@ extension avdecc_entity_model_locale_descriptor_s {
     }
 }
 
-public final class Library {
-    public static var shared = Library()
+final class Library {
+    static var shared = Library()
 
     private static func isCompatibleWithInterfaceVersion(_ version: Int32) -> Bool {
         LA_AVDECC_isCompatibleWithInterfaceVersion(avdecc_interface_version_t(version)) != 0
@@ -110,6 +110,31 @@ public final class Library {
 
     deinit {
         LA_AVDECC_uninitialize()
+    }
+}
+
+public enum ExecutorError: UInt8, Error {
+    case alreadyExists = 1
+    case notFound = 2
+    case invalidProtocolInterfaceHandle = 98
+    case internalError = 99
+}
+
+public final class Executor {
+    let library = Library()
+    var handle: UnsafeMutableRawPointer!
+
+    public init() throws {
+        let err = LA_AVDECC_Executor_createQueueExecutor("AVDECCSwift", &handle)
+        if err != 0 {
+            throw ExecutorError(rawValue: err) ?? .internalError
+        }
+    }
+
+    deinit {
+        if handle != nil {
+            LA_AVDECC_Executor_destroy(handle)
+        }
     }
 }
 
