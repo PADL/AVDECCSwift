@@ -128,7 +128,6 @@ public final class Executor {
     let library = Library()
     var handle: UnsafeMutableRawPointer!
 
-    
     public init() throws {
         let err = LA_AVDECC_Executor_createQueueExecutor("AVDECCSwift", &handle)
         if err != 0 {
@@ -182,14 +181,14 @@ extension CheckedContinuation where T == avdecc_protocol_acmpdu_t, E == any Erro
 extension CheckedContinuation where T == avdecc_protocol_aem_aecpdu_t, E == any Error {
     func resume(throwing err: avdecc_protocol_interface_error_t) {
         let pie = ProtocolInterfaceError(rawValue: err) ?? .internalError
-        self.resume(throwing: pie)
+        resume(throwing: pie)
     }
 }
 
 extension CheckedContinuation where T == avdecc_protocol_mvu_aecpdu_t, E == any Error {
     func resume(throwing err: avdecc_protocol_interface_error_t) {
         let pie = ProtocolInterfaceError(rawValue: err) ?? .internalError
-        self.resume(throwing: pie)
+        resume(throwing: pie)
     }
 }
 
@@ -209,37 +208,55 @@ private func ProtocolInterface_onTransportError(handle: UnsafeMutableRawPointer?
     }
 }
 
-private func ProtocolInterface_onLocalEntityOnline(handle: UnsafeMutableRawPointer?, entity: avdecc_entity_cp?) {
+private func ProtocolInterface_onLocalEntityOnline(
+    handle: UnsafeMutableRawPointer?,
+    entity: avdecc_entity_cp?
+) {
     ProtocolInterface.withObserver(handle) {
         await $0.observer?.onLocalEntityOnline($0, entity: entity!.pointee)
     }
 }
 
-private func ProtocolInterface_onLocalEntityOffline(handle: UnsafeMutableRawPointer?, entityID: avdecc_unique_identifier_t) {
+private func ProtocolInterface_onLocalEntityOffline(
+    handle: UnsafeMutableRawPointer?,
+    entityID: avdecc_unique_identifier_t
+) {
     ProtocolInterface.withObserver(handle) {
         await $0.observer?.onLocalEntityOffline($0, entityID: entityID)
     }
 }
 
-private func ProtocolInterface_onLocalEntityUpdated(handle: UnsafeMutableRawPointer?, entity: avdecc_entity_cp?) {
+private func ProtocolInterface_onLocalEntityUpdated(
+    handle: UnsafeMutableRawPointer?,
+    entity: avdecc_entity_cp?
+) {
     ProtocolInterface.withObserver(handle) {
         await $0.observer?.onLocalEntityUpdated($0, entity: entity!.pointee)
     }
 }
 
-private func ProtocolInterface_onRemoteEntityOnline(handle: UnsafeMutableRawPointer?, entity: avdecc_entity_cp?) {
+private func ProtocolInterface_onRemoteEntityOnline(
+    handle: UnsafeMutableRawPointer?,
+    entity: avdecc_entity_cp?
+) {
     ProtocolInterface.withObserver(handle) {
         await $0.observer?.onRemoteEntityOnline($0, entity: entity!.pointee)
     }
 }
 
-private func ProtocolInterface_onRemoteEntityOffline(handle: UnsafeMutableRawPointer?, entityID: avdecc_unique_identifier_t) {
+private func ProtocolInterface_onRemoteEntityOffline(
+    handle: UnsafeMutableRawPointer?,
+    entityID: avdecc_unique_identifier_t
+) {
     ProtocolInterface.withObserver(handle) {
         await $0.observer?.onRemoteEntityOffline($0, entityID: entityID)
     }
 }
 
-private func ProtocolInterface_onRemoteEntityUpdated(handle: UnsafeMutableRawPointer?, entity: avdecc_entity_cp?) {
+private func ProtocolInterface_onRemoteEntityUpdated(
+    handle: UnsafeMutableRawPointer?,
+    entity: avdecc_entity_cp?
+) {
     ProtocolInterface.withObserver(handle) {
         await $0.observer?.onRemoteEntityUpdated($0, entity: entity!.pointee)
     }
@@ -264,7 +281,10 @@ public actor ProtocolInterface {
     nonisolated let handle: UnsafeMutableRawPointer!
     nonisolated let observerThunk: avdecc_protocol_interface_observer_t
 
-    static func withObserver(_ handle: UnsafeMutableRawPointer?, _ body: @escaping (ProtocolInterface) async -> ()) {
+    static func withObserver(
+        _ handle: UnsafeMutableRawPointer?,
+        _ body: @escaping (ProtocolInterface) async -> ()
+    ) {
         if let handle, let this = ProtocolInterface.map[handle] {
             Task {
                 await body(this)
@@ -340,10 +360,18 @@ public actor ProtocolInterface {
         }
     }
 
-    public func sendAemAecpCommand(_ pdu: avdecc_protocol_aem_aecpdu_t) async throws -> avdecc_protocol_aem_aecpdu_t {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<avdecc_protocol_aem_aecpdu_t, Error>) in
+    public func sendAemAecpCommand(_ pdu: avdecc_protocol_aem_aecpdu_t) async throws
+        -> avdecc_protocol_aem_aecpdu_t
+    {
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
+            avdecc_protocol_aem_aecpdu_t,
+            Error
+        >) in
             var pdu = pdu
-            let err = LA_AVDECC_ProtocolInterface_sendAemAecpCommand_Block(self?.handle, &pdu) { response, err in
+            let err = LA_AVDECC_ProtocolInterface_sendAemAecpCommand_Block(
+                self?.handle,
+                &pdu
+            ) { response, err in
                 guard err != 0 else {
                     continuation.resume(throwing: err)
                     return
@@ -357,10 +385,18 @@ public actor ProtocolInterface {
         }
     }
 
-    public func sendMvuAecpCommand(_ pdu: avdecc_protocol_mvu_aecpdu_t) async throws -> avdecc_protocol_mvu_aecpdu_t {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<avdecc_protocol_mvu_aecpdu_t, Error>) in
+    public func sendMvuAecpCommand(_ pdu: avdecc_protocol_mvu_aecpdu_t) async throws
+        -> avdecc_protocol_mvu_aecpdu_t
+    {
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
+            avdecc_protocol_mvu_aecpdu_t,
+            Error
+        >) in
             var pdu = pdu
-            let err = LA_AVDECC_ProtocolInterface_sendMvuAecpCommand_Block(self?.handle, &pdu) { response, err in
+            let err = LA_AVDECC_ProtocolInterface_sendMvuAecpCommand_Block(
+                self?.handle,
+                &pdu
+            ) { response, err in
                 guard err != 0 else {
                     continuation.resume(throwing: err)
                     return
