@@ -120,10 +120,15 @@ public enum ExecutorError: UInt8, Error {
     case internalError = 99
 }
 
+// FIXME: integrate C++ library with libdispatch
+
 public final class Executor {
+    public let shared = try! Executor()
+
     let library = Library()
     var handle: UnsafeMutableRawPointer!
 
+    
     public init() throws {
         let err = LA_AVDECC_Executor_createQueueExecutor("AVDECCSwift", &handle)
         if err != 0 {
@@ -174,13 +179,33 @@ extension CheckedContinuation where T == avdecc_protocol_acmpdu_t, E == any Erro
     }
 }
 
-public final class ProtocolInterface {
-    var handle: UnsafeMutableRawPointer!
+extension CheckedContinuation where T == avdecc_protocol_aem_aecpdu_t, E == any Error {
+    func resume(throwing err: avdecc_protocol_interface_error_t) {
+        let pie = ProtocolInterfaceError(rawValue: err) ?? .internalError
+        self.resume(throwing: pie)
+    }
+}
+
+extension CheckedContinuation where T == avdecc_protocol_mvu_aecpdu_t, E == any Error {
+    func resume(throwing err: avdecc_protocol_interface_error_t) {
+        let pie = ProtocolInterfaceError(rawValue: err) ?? .internalError
+        self.resume(throwing: pie)
+    }
+}
+
+// Note: needs to be an actor as _Block() wrappers are not thread-safe
+
+public actor ProtocolInterface {
+    nonisolated let handle: UnsafeMutableRawPointer!
 
     public init(type: avdecc_protocol_interface_type_e, interfaceID: String) throws {
+        var handle: UnsafeMutableRawPointer!
+
         try withProtocolInterfaceError {
             LA_AVDECC_ProtocolInterface_create(UInt8(type.rawValue), interfaceID, &handle)
         }
+
+        self.handle = handle
     }
 
     deinit {
@@ -227,6 +252,41 @@ public final class ProtocolInterface {
             }
         }
     }
+
+    public func sendAemAecpCommand(_ pdu: avdecc_protocol_aem_aecpdu_t) async throws -> avdecc_protocol_aem_aecpdu_t {
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<avdecc_protocol_aem_aecpdu_t, Error>) in
+            var pdu = pdu
+            let err = LA_AVDECC_ProtocolInterface_sendAemAecpCommand_Block(self?.handle, &pdu) { response, err in
+                guard err != 0 else {
+                    continuation.resume(throwing: err)
+                    return
+                }
+                continuation.resume(returning: response!.pointee)
+            }
+            guard err != 0 else {
+                continuation.resume(throwing: err)
+                return
+            }
+        }
+    }
+
+    public func sendMvuAecpCommand(_ pdu: avdecc_protocol_mvu_aecpdu_t) async throws -> avdecc_protocol_mvu_aecpdu_t {
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<avdecc_protocol_mvu_aecpdu_t, Error>) in
+            var pdu = pdu
+            let err = LA_AVDECC_ProtocolInterface_sendMvuAecpCommand_Block(self?.handle, &pdu) { response, err in
+                guard err != 0 else {
+                    continuation.resume(throwing: err)
+                    return
+                }
+                continuation.resume(returning: response!.pointee)
+            }
+            guard err != 0 else {
+                continuation.resume(throwing: err)
+                return
+            }
+        }
+    }
+
 }
 
 public enum LocalEntityError: UInt8, Error {

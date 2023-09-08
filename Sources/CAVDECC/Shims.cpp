@@ -21,7 +21,6 @@
 
 #include <cstddef>
 #include <map>
-#include <mutex>
 #include <utility>
 
 #ifdef __APPLE__
@@ -32,50 +31,136 @@
 
 #include <CAVDECCShims.h>
 
+// FIXME: can we template this?
+
 static std::map<
     std::pair<avdecc_unique_identifier_t, avdecc_protocol_acmp_sequence_id_t>,
     avdecc_protocol_interfaces_send_acmp_command_block>
     acmpCommandBlocks;
-static std::mutex acmpCommandBlocksLock;
 
 static void LA_AVDECC_ProtocolInterface_sendAcmpCommand_Thunk(
     avdecc_protocol_acmpdu_cp const response,
     avdecc_protocol_interface_error_t const error) {
     auto pair =
         std::make_pair(response->controller_entity_id, response->sequence_id);
-
-    acmpCommandBlocksLock.lock();
     auto block = (avdecc_protocol_interfaces_send_acmp_command_block)
         acmpCommandBlocks[pair];
-    acmpCommandBlocks.erase(pair);
-    acmpCommandBlocksLock.unlock();
-
-    block(response, error);
-    _Block_release(block);
+    if (block) {
+        acmpCommandBlocks.erase(pair);
+        block(response, error);
+        _Block_release(block);
+    }
 }
 
 LA_AVDECC_BINDINGS_C_API
     avdecc_protocol_interface_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION
     LA_AVDECC_ProtocolInterface_sendAcmpCommand_Block(
         LA_AVDECC_PROTOCOL_INTERFACE_HANDLE const handle,
-        avdecc_protocol_acmpdu_cp const acmpdu,
+        avdecc_protocol_acmpdu_cp const acmPdu,
         avdecc_protocol_interfaces_send_acmp_command_block const onResult) {
     auto error = LA_AVDECC_ProtocolInterface_sendAcmpCommand(
-        handle, acmpdu, LA_AVDECC_ProtocolInterface_sendAcmpCommand_Thunk);
+        handle, acmPdu, LA_AVDECC_ProtocolInterface_sendAcmpCommand_Thunk);
 
     if (error != avdecc_protocol_interface_error_no_error)
         return error;
 
-    // FIXME: race condition here?
+    // FIXME: race condition here, what happens if we receive a reply before
+    // registering callback?
     auto pair =
-        std::make_pair(acmpdu->controller_entity_id, acmpdu->sequence_id);
-    assert(acmpdu->sequence_id != 0);
+        std::make_pair(acmPdu->controller_entity_id, acmPdu->sequence_id);
+    assert(acmPdu->sequence_id != 0);
 
-    acmpCommandBlocksLock.lock();
     acmpCommandBlocks[pair] =
         (avdecc_protocol_interfaces_send_acmp_command_block)_Block_copy(
             onResult);
-    acmpCommandBlocksLock.unlock();
+
+    return avdecc_protocol_interface_error_no_error;
+}
+
+static std::map<
+    std::pair<avdecc_unique_identifier_t, avdecc_protocol_aecp_sequence_id_t>,
+    avdecc_protocol_interfaces_send_aem_aecp_command_block>
+    aemAecpCommandBlocks;
+
+static void LA_AVDECC_ProtocolInterface_sendAemAecpCommand_Thunk(
+    avdecc_protocol_aem_aecpdu_cp const response,
+    avdecc_protocol_interface_error_t const error) {
+    auto pair =
+        std::make_pair(response->controller_entity_id, response->sequence_id);
+    auto block = (avdecc_protocol_interfaces_send_aem_aecp_command_block)
+        aemAecpCommandBlocks[pair];
+    if (block) {
+        aemAecpCommandBlocks.erase(pair);
+        block(response, error);
+        _Block_release(block);
+    }
+}
+
+LA_AVDECC_BINDINGS_C_API
+    avdecc_protocol_interface_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION
+    LA_AVDECC_ProtocolInterface_sendAemAecpCommand_Block(
+        LA_AVDECC_PROTOCOL_INTERFACE_HANDLE const handle,
+        avdecc_protocol_aem_aecpdu_cp const aemAecPdu,
+        avdecc_protocol_interfaces_send_aem_aecp_command_block const onResult) {
+    auto error = LA_AVDECC_ProtocolInterface_sendAemAecpCommand(
+        handle, aemAecPdu, LA_AVDECC_ProtocolInterface_sendAemAecpCommand_Thunk);
+
+    if (error != avdecc_protocol_interface_error_no_error)
+        return error;
+
+    // FIXME: race condition here, what happens if we receive a reply before
+    // registering callback?
+    auto pair =
+        std::make_pair(aemAecPdu->controller_entity_id, aemAecPdu->sequence_id);
+    assert(aemAecPdu->sequence_id != 0);
+
+    aemAecpCommandBlocks[pair] =
+        (avdecc_protocol_interfaces_send_aem_aecp_command_block)_Block_copy(
+            onResult);
+
+    return avdecc_protocol_interface_error_no_error;
+}
+
+static std::map<
+    std::pair<avdecc_unique_identifier_t, avdecc_protocol_aecp_sequence_id_t>,
+    avdecc_protocol_interfaces_send_mvu_aecp_command_block>
+    mvuAecpCommandBlocks;
+
+static void LA_AVDECC_ProtocolInterface_sendMvuAecpCommand_Thunk(
+    avdecc_protocol_mvu_aecpdu_cp const response,
+    avdecc_protocol_interface_error_t const error) {
+    auto pair =
+        std::make_pair(response->controller_entity_id, response->sequence_id);
+    auto block = (avdecc_protocol_interfaces_send_mvu_aecp_command_block)
+        mvuAecpCommandBlocks[pair];
+    if (block) {
+        mvuAecpCommandBlocks.erase(pair);
+        block(response, error);
+        _Block_release(block);
+    }
+}
+
+LA_AVDECC_BINDINGS_C_API
+    avdecc_protocol_interface_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION
+    LA_AVDECC_ProtocolInterface_sendMvuAecpCommand_Block(
+        LA_AVDECC_PROTOCOL_INTERFACE_HANDLE const handle,
+        avdecc_protocol_mvu_aecpdu_cp const mvuAecPdu,
+        avdecc_protocol_interfaces_send_mvu_aecp_command_block const onResult) {
+    auto error = LA_AVDECC_ProtocolInterface_sendMvuAecpCommand(
+        handle, mvuAecPdu, LA_AVDECC_ProtocolInterface_sendMvuAecpCommand_Thunk);
+
+    if (error != avdecc_protocol_interface_error_no_error)
+        return error;
+
+    // FIXME: race condition here, what happens if we receive a reply before
+    // registering callback?
+    auto pair =
+        std::make_pair(mvuAecPdu->controller_entity_id, mvuAecPdu->sequence_id);
+    assert(mvuAecPdu->sequence_id != 0);
+
+    mvuAecpCommandBlocks[pair] =
+        (avdecc_protocol_interfaces_send_mvu_aecp_command_block)_Block_copy(
+            onResult);
 
     return avdecc_protocol_interface_error_no_error;
 }
