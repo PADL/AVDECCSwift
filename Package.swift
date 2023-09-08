@@ -17,7 +17,7 @@ Platform = "darwin"
 let Architecture: String
 
 #if arch(x86_64)
-Architecture = "x86_64"
+Architecture = "x86"
 #elseif arch(arm64)
 Architecture = "arm64"
 #endif

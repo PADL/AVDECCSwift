@@ -12,6 +12,10 @@
                {
                     "path": "_build_linux_x86_64_makefiles_debug/src/controller/avdecc_controller_cxx-d.so",
                     "supportedTriples": ["x86_64-unknown-linux-gnu"]
+               },
+               {
+                    "path": "_build_mac_arm64_makefiles_debug/src/controller/libla_avdecc_c-d.dylib",
+                    "supportedTriples": ["x86_64-apple-macosx", "arm64-apple-macosx"]
                }
             ]
         },
@@ -26,6 +30,10 @@
                {
                     "path": "_build_linux_x86_64_makefiles_debug/src/libla_avdecc_cxx-d.so",
                     "supportedTriples": ["x86_64-unknown-linux-gnu"]
+               },
+               {
+                    "path": "_build_mac_arm64_makefiles_debug/src/libla_avdecc_cxx-d.dylib",
+                    "supportedTriples": ["x86_64-apple-macosx", "arm64-apple-macosx"]
                }
             ]
         },
@@ -40,6 +48,10 @@
                {
                     "path": "_build_linux_x86_64_makefiles_debug/src/bindings/c/libla_avdecc_c-d.so",
                     "supportedTriples": ["x86_64-unknown-linux-gnu"]
+               },
+               {
+                    "path": "_build_mac_arm64_makefiles_debug/src/bindings/c/libla_avdecc_c-d.dylib",
+                    "supportedTriples": ["x86_64-apple-macosx", "arm64-apple-macosx"]
                }
             ]
         }
