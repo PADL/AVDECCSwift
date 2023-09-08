@@ -20,11 +20,13 @@ else
     SOSUFFIX=so;
 fi;
 
+BUILDDIR="_build_${PLATFORM}_${ARCH}_makefiles_debug"
+
 pushd Sources/CAVDECC/avdecc
+echo "Build directory is $BUILDDIR"
 #rm -rf $BUILDDIR
 bash gen_cmake.sh -arch ${ARCH} -debug -build-c
 
-BUILDDIR="_build_${PLATFORM}_${ARCH}_makefiles_debug"
 cp ../../../info.json.in info.json
 pushd $BUILDDIR
 make -j13
