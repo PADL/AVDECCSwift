@@ -193,10 +193,84 @@ extension CheckedContinuation where T == avdecc_protocol_mvu_aecpdu_t, E == any 
     }
 }
 
-// Note: needs to be an actor as _Block() wrappers are not thread-safe
+public protocol ProtocolInterfaceObserver {
+    func onTransportError(_: ProtocolInterface)
+    func onLocalEntityOnline(_: ProtocolInterface, entity: avdecc_entity_t)
+    func onLocalEntityOffline(_: ProtocolInterface, entityID: avdecc_unique_identifier_t)
+    func onLocalEntityUpdated(_: ProtocolInterface, entity: avdecc_entity_t)
+    func onRemoteEntityOnline(_: ProtocolInterface, entity: avdecc_entity_t)
+    func onRemoteEntityOffline(_: ProtocolInterface, entityID: avdecc_unique_identifier_t)
+    func onRemoteEntityUpdated(_: ProtocolInterface, entity: avdecc_entity_t)
+}
 
+private func ProtocolInterface_onTransportError(handle: UnsafeMutableRawPointer?) {
+    ProtocolInterface.withObserver(handle) {
+        await $0.observer?.onTransportError($0)
+    }
+}
+
+private func ProtocolInterface_onLocalEntityOnline(handle: UnsafeMutableRawPointer?, entity: avdecc_entity_cp?) {
+    ProtocolInterface.withObserver(handle) {
+        await $0.observer?.onLocalEntityOnline($0, entity: entity!.pointee)
+    }
+}
+
+private func ProtocolInterface_onLocalEntityOffline(handle: UnsafeMutableRawPointer?, entityID: avdecc_unique_identifier_t) {
+    ProtocolInterface.withObserver(handle) {
+        await $0.observer?.onLocalEntityOffline($0, entityID: entityID)
+    }
+}
+
+private func ProtocolInterface_onLocalEntityUpdated(handle: UnsafeMutableRawPointer?, entity: avdecc_entity_cp?) {
+    ProtocolInterface.withObserver(handle) {
+        await $0.observer?.onLocalEntityUpdated($0, entity: entity!.pointee)
+    }
+}
+
+private func ProtocolInterface_onRemoteEntityOnline(handle: UnsafeMutableRawPointer?, entity: avdecc_entity_cp?) {
+    ProtocolInterface.withObserver(handle) {
+        await $0.observer?.onRemoteEntityOnline($0, entity: entity!.pointee)
+    }
+}
+
+private func ProtocolInterface_onRemoteEntityOffline(handle: UnsafeMutableRawPointer?, entityID: avdecc_unique_identifier_t) {
+    ProtocolInterface.withObserver(handle) {
+        await $0.observer?.onRemoteEntityOffline($0, entityID: entityID)
+    }
+}
+
+private func ProtocolInterface_onRemoteEntityUpdated(handle: UnsafeMutableRawPointer?, entity: avdecc_entity_cp?) {
+    ProtocolInterface.withObserver(handle) {
+        await $0.observer?.onRemoteEntityUpdated($0, entity: entity!.pointee)
+    }
+}
+
+// Note: needs to be an actor as _Block() wrappers are not thread-safe
 public actor ProtocolInterface {
+    // FIXME: add support for private data to avdecc
+    static var map = ThreadSafeDictionary<UnsafeMutableRawPointer, ProtocolInterface>()
+
+    public var observer: ProtocolInterfaceObserver? {
+        didSet {
+            var observerThunk = observerThunk
+            if observer != nil {
+                LA_AVDECC_ProtocolInterface_registerObserver(handle, &observerThunk)
+            } else {
+                LA_AVDECC_ProtocolInterface_unregisterObserver(handle, &observerThunk)
+            }
+        }
+    }
+
     nonisolated let handle: UnsafeMutableRawPointer!
+    nonisolated let observerThunk: avdecc_protocol_interface_observer_t
+
+    static func withObserver(_ handle: UnsafeMutableRawPointer?, _ body: @escaping (ProtocolInterface) async -> ()) {
+        if let handle, let this = ProtocolInterface.map[handle] {
+            Task {
+                await body(this)
+            }
+        }
+    }
 
     public init(type: avdecc_protocol_interface_type_e, interfaceID: String) throws {
         var handle: UnsafeMutableRawPointer!
@@ -206,10 +280,23 @@ public actor ProtocolInterface {
         }
 
         self.handle = handle
+
+        var observerThunk = avdecc_protocol_interface_observer_t()
+        observerThunk.onTransportError = ProtocolInterface_onTransportError
+        observerThunk.onLocalEntityOnline = ProtocolInterface_onLocalEntityOnline
+        observerThunk.onLocalEntityOffline = ProtocolInterface_onLocalEntityOffline
+        observerThunk.onLocalEntityUpdated = ProtocolInterface_onLocalEntityUpdated
+        observerThunk.onRemoteEntityOnline = ProtocolInterface_onRemoteEntityOnline
+        observerThunk.onRemoteEntityOffline = ProtocolInterface_onRemoteEntityOffline
+        observerThunk.onRemoteEntityUpdated = ProtocolInterface_onRemoteEntityUpdated
+
+        self.observerThunk = observerThunk
+        Self.map[handle] = self
     }
 
     deinit {
         if handle != nil {
+            Self.map[handle] = nil
             LA_AVDECC_ProtocolInterface_destroy(handle)
         }
     }
@@ -287,6 +374,17 @@ public actor ProtocolInterface {
         }
     }
 
+    public func enableEntityAdvertising(localEntity: LocalEntity) throws {
+        try withProtocolInterfaceError {
+            LA_AVDECC_ProtocolInterface_enableEntityAdvertising(handle, localEntity.handle)
+        }
+    }
+
+    public func releaseDynamicEID(_ id: avdecc_unique_identifier_t) throws {
+        try withProtocolInterfaceError {
+            LA_AVDECC_ProtocolInterface_releaseDynamicEID(handle, id)
+        }
+    }
 }
 
 public enum LocalEntityError: UInt8, Error {
@@ -311,6 +409,36 @@ public final class LocalEntity {
         var entity = entity
         try withLocalEntityError {
             LA_AVDECC_LocalEntity_create(protocolInterface.handle, &entity, delegate, &handle)
+        }
+    }
+
+    public func enableEntityAdvertising(availableDuration: CUnsignedInt) throws {
+        try withLocalEntityError {
+            LA_AVDECC_LocalEntity_enableEntityAdvertising(handle, availableDuration)
+        }
+    }
+
+    public func disableEntityAdvertising() throws {
+        try withLocalEntityError {
+            LA_AVDECC_LocalEntity_disableEntityAdvertising(handle)
+        }
+    }
+
+    public func discoverRemoteEntities() throws {
+        try withLocalEntityError {
+            LA_AVDECC_LocalEntity_discoverRemoteEntities(handle)
+        }
+    }
+
+    public func discoverRemoteEntity(_ entityID: avdecc_unique_identifier_t) throws {
+        try withLocalEntityError {
+            LA_AVDECC_LocalEntity_discoverRemoteEntity(handle, entityID)
+        }
+    }
+
+    public func setAutomaticDiscoveryDelay(_ millisecondsDelay: CUnsignedInt) throws {
+        try withLocalEntityError {
+            LA_AVDECC_LocalEntity_setAutomaticDiscoveryDelay(handle, millisecondsDelay)
         }
     }
 
