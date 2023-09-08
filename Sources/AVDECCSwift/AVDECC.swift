@@ -179,9 +179,8 @@ public final class ProtocolInterface {
     }
 
     public func sendAcmpCommand(_ pdu: avdecc_protocol_acmpdu_t) async throws -> avdecc_protocol_acmpdu_t {
-        var pdu = pdu
-
-        return try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<avdecc_protocol_acmpdu_t, Error>) in
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<avdecc_protocol_acmpdu_t, Error>) in
+            var pdu = pdu
             let err = LA_AVDECC_ProtocolInterface_sendAcmpCommand_Block(self?.handle, &pdu) { response, err in
                 guard err != 0 else {
                     continuation.resume(throwing: err)
