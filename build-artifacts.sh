@@ -29,24 +29,29 @@ fi
 if [ "$PLATFORM" == "mac" ]; then
     export PATH="$(brew --prefix grep)/libexec/gnubin:$(brew --prefix bash)/bin:$PATH"
     ARCHS="-arch x64 -arch arm64"
-    CLANGBINDIR=/usr/bin
+    CLANGDIR=
     SOSUFFIX=dylib;
 else
     ARCHS="-arch ${ARCH}"
-    CLANGBINDIR=/opt/swift/usr/bin
+    CLANGDIR=/opt/swift
     SOSUFFIX=so;
 fi
 
 BUILDDIR="_build_${PLATFORM}_${ARCH}_makefiles_debug"
+BUILDCFLAGS="-I${CLANGDIR}/usr/lib/swift -fblocks"
+BUILDLDFLAGS_SHARED="-L${CLANGDIR}/usr/lib/swift/${PLATFORM} -lBlocksRuntime"
+BUILDLDFLAGS_STATIC="-L${CLANGDIR}/usr/lib/swift_static/${PLATFORM} -lBlocksRuntime"
 
 pushd Sources/CAVDECC/avdecc
-echo "Build directory is $BUILDDIR"
+echo "Build directory is $BUILDDIR with flags $BUILDFLAGS"
 #rm -rf $BUILDDIR
 ./gen_cmake.sh ${ARCHS} \
-    -a "-DCMAKE_C_FLAGS=-fblocks" \
-    -a "-DCMAKE_CXX_FLAGS=-fblocks" \
-    -a "-DCMAKE_C_COMPILER=${CLANGBINDIR}/clang" \
-    -a "-DCMAKE_CXX_COMPILER=${CLANGBINDIR}/clang++" \
+    -a "-DCMAKE_C_COMPILER=${CLANGDIR}/usr/bin/clang" \
+    -a "-DCMAKE_C_FLAGS=${BUILDCFLAGS}" \
+    -a "-DCMAKE_CXX_COMPILER=${CLANGDIR}/usr/bin/clang++" \
+    -a "-DCMAKE_CXX_FLAGS=${BUILDCFLAGS}" \
+    -a "-DCMAKE_SHARED_LINKER_FLAGS=${BUILDLDFLAGS_SHARED}" \
+    -a "-DCMAKE_STATIC_LINKER_FLAGS=" \
     -c "Unix Makefiles" \
     -debug \
     -build-c
