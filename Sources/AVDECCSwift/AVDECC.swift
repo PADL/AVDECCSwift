@@ -21,6 +21,9 @@ import CAVDECC
 
 public let DefaultExecutorName = "avdecc::protocol::PI"
 
+public typealias Entity = avdecc_entity_t
+public typealias UniqueIdentifier = avdecc_unique_identifier_t
+
 extension UnsafePointer {
     func propertyBasePointer<Property>(to property: KeyPath<Pointee, Property>)
         -> UnsafePointer<Property>?
@@ -210,21 +213,10 @@ public protocol ProtocolInterfaceObserver {
 }
 
 public final class ProtocolInterface {
-    public var observer: ProtocolInterfaceObserver? {
-        didSet {
-            var observerThunk = observerThunk
-            if observer != nil {
-                LA_AVDECC_ProtocolInterface_registerObserver_block(handle, &observerThunk)
-            } else {
-                LA_AVDECC_ProtocolInterface_unregisterObserver_block(handle, &observerThunk)
-            }
-        }
-    }
-
     let handle: UnsafeMutableRawPointer!
-    let observerThunk: avdecc_protocol_interface_block_observer_t
+    public var observer: ProtocolInterfaceObserver?
 
-    func withObserver(
+    static func withObserver(
         _ handle: UnsafeMutableRawPointer?,
         _ body: @escaping (ProtocolInterface) -> ()
     ) {
@@ -251,16 +243,6 @@ public final class ProtocolInterface {
 
         self.handle = handle
 
-        var observerThunk = avdecc_protocol_interface_block_observer_t()
-        observerThunk.onTransportError = onTransportError
-        observerThunk.onLocalEntityOnline = onLocalEntityOnline
-        observerThunk.onLocalEntityOffline = onLocalEntityOffline
-        observerThunk.onLocalEntityUpdated = onLocalEntityUpdated
-        observerThunk.onRemoteEntityOnline = onRemoteEntityOnline
-        observerThunk.onRemoteEntityOffline = onRemoteEntityOffline
-        observerThunk.onRemoteEntityUpdated = onRemoteEntityUpdated
-
-        self.observerThunk = observerThunk
         LA_AVDECC_ProtocolInterface_setApplicationData(
             handle,
             Unmanaged.passUnretained(self).toOpaque()
@@ -487,66 +469,6 @@ public final class ProtocolInterface {
     public var isSelfLocked: Bool {
         LA_AVDECC_ProtocolInterface_isSelfLocked(handle) != 0
     }
-
-    func onTransportError(handle: UnsafeMutableRawPointer?) {
-        withObserver(handle) {
-            $0.observer?.onTransportError($0)
-        }
-    }
-
-    func onLocalEntityOnline(
-        handle: UnsafeMutableRawPointer?,
-        entity: avdecc_entity_cp?
-    ) {
-        withObserver(handle) {
-            $0.observer?.onLocalEntityOnline($0, entity!.pointee)
-        }
-    }
-
-    func onLocalEntityOffline(
-        handle: UnsafeMutableRawPointer?,
-        entityID: avdecc_unique_identifier_t
-    ) {
-        withObserver(handle) {
-            $0.observer?.onLocalEntityOffline($0, id: entityID)
-        }
-    }
-
-    func onLocalEntityUpdated(
-        handle: UnsafeMutableRawPointer?,
-        entity: avdecc_entity_cp?
-    ) {
-        withObserver(handle) {
-            $0.observer?.onLocalEntityUpdated($0, entity!.pointee)
-        }
-    }
-
-    func onRemoteEntityOnline(
-        handle: UnsafeMutableRawPointer?,
-        entity: avdecc_entity_cp?
-    ) {
-        withObserver(handle) {
-            $0.observer?.onRemoteEntityOnline($0, entity!.pointee)
-        }
-    }
-
-    func onRemoteEntityOffline(
-        handle: UnsafeMutableRawPointer?,
-        entityID: avdecc_unique_identifier_t
-    ) {
-        withObserver(handle) {
-            $0.observer?.onRemoteEntityOffline($0, id: entityID)
-        }
-    }
-
-    func onRemoteEntityUpdated(
-        handle: UnsafeMutableRawPointer?,
-        entity: avdecc_entity_cp?
-    ) {
-        withObserver(handle) {
-            $0.observer?.onRemoteEntityUpdated($0, entity!.pointee)
-        }
-    }
 }
 
 public enum LocalEntityError: UInt8, Error {
@@ -571,11 +493,15 @@ public final class LocalEntity {
     var delegate: avdecc_local_entity_controller_delegate_p?
     var handle: UnsafeMutableRawPointer!
 
-    public init(protocolInterface: ProtocolInterface, entity: avdecc_entity_t) throws {
+    init(_ protocolInterfaceHandle: UnsafeMutableRawPointer, entity: avdecc_entity_t) throws {
         var entity = entity
         try withLocalEntityError {
-            LA_AVDECC_LocalEntity_create(protocolInterface.handle, &entity, delegate, &handle)
+            LA_AVDECC_LocalEntity_create(protocolInterfaceHandle, &entity, delegate, &handle)
         }
+    }
+
+    public convenience init(protocolInterface: ProtocolInterface, entity: avdecc_entity_t) throws {
+        try self.init(protocolInterface.handle, entity: entity)
     }
 
     deinit {
@@ -751,3 +677,67 @@ public extension String {
         })
     }
 }
+
+/// MARK: ProtocolInterface thunks
+
+private func ProtocolInterface_onTransportError(handle: UnsafeMutableRawPointer?) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onTransportError($0)
+    }
+}
+
+private func ProtocolInterface_onLocalEntityOnline(
+    handle: UnsafeMutableRawPointer?,
+    entity: avdecc_entity_cp?
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onLocalEntityOnline($0, entity!.pointee)
+    }
+}
+
+private func ProtocolInterface_onLocalEntityOffline(
+    handle: UnsafeMutableRawPointer?,
+    entityID: avdecc_unique_identifier_t
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onLocalEntityOffline($0, id: entityID)
+    }
+}
+
+private func ProtocolInterface_onLocalEntityUpdated(
+    handle: UnsafeMutableRawPointer?,
+    entity: avdecc_entity_cp?
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onLocalEntityUpdated($0, entity!.pointee)
+    }
+}
+
+private func ProtocolInterface_onRemoteEntityOnline(
+    handle: UnsafeMutableRawPointer?,
+    entity: avdecc_entity_cp?
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onRemoteEntityOnline($0, entity!.pointee)
+    }
+}
+
+private func ProtocolInterface_onRemoteEntityOffline(
+    handle: UnsafeMutableRawPointer?,
+    entityID: avdecc_unique_identifier_t
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onRemoteEntityOffline($0, id: entityID)
+    }
+}
+
+private func ProtocolInterface_onRemoteEntityUpdated(
+    handle: UnsafeMutableRawPointer?,
+    entity: avdecc_entity_cp?
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onRemoteEntityUpdated($0, entity!.pointee)
+    }
+}
+
+
