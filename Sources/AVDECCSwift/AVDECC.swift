@@ -602,8 +602,6 @@ public final class LocalEntity {
         }
     }
 
-/*
-    // LA_AVDECC_LocalEntity_acquireEntity
     public func acquireEntity(id entityID: avdecc_unique_identifier_t,
         isPersistent: Bool,
         descriptorType: avdecc_entity_model_descriptor_type_t,
@@ -612,8 +610,17 @@ public final class LocalEntity {
             (avdecc_local_entity_aem_command_status_t, avdecc_unique_identifier_t),
             Error
         >) in
-            let err = LA_AVDECC_LocalEntity_acquireEntity(self?.handle, entityID, isPersistent ? 1 : 0, descriptorType, descriptorIndex) { handle, entityID, status, owningEntity, descriptorType, descriptorIndex in
-            continuation.resume(returning: (status, owningEntity))
+            guard let self else {
+                continuation.resume(throwing: LocalEntityError.internalError)
+                return
+            }
+
+            let err = LA_AVDECC_LocalEntity_acquireEntity_block(self.handle,
+                entityID,
+                isPersistent ? 1 : 0,
+                descriptorType,
+                descriptorIndex) { handle, entityID, status, owningEntity, descriptorType, descriptorIndex in
+                continuation.resume(returning: (status, owningEntity))
             }
             guard err != 0 else {
                 continuation.resume(throwing: LocalEntityError(err))
@@ -621,27 +628,6 @@ public final class LocalEntity {
             }
         }
     }
-*/
-
-/*
-typedef void(LA_AVDECC_BINDINGS_C_CALL_CONVENTION* avdecc_local_entity_acquire_entity_cb)(
-    LA_AVDECC_LOCAL_ENTITY_HANDLE const /*handle*/,                             // shared
-    avdecc_unique_identifier_t const /*entityID*/,                              // shared
-    avdecc_local_entity_aem_command_status_t const /*status*/,                                  // new
-    avdecc_unique_identifier_t const /*owningEntity*/,                                          // new
-    avdecc_entity_model_descriptor_type_t const /*descriptorType*/,             // shared
-    avdecc_entity_model_descriptor_index_t const /*descriptorIndex*/);          // shared
-
-LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t
-LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_acquireEntity(
-    LA_AVDECC_LOCAL_ENTITY_HANDLE const handle,
-    avdecc_unique_identifier_t const entityID,
-    avdecc_bool_t const isPersistent,
-    avdecc_entity_model_descriptor_type_t const descriptorType,
-    avdecc_entity_model_descriptor_index_t const descriptorIndex,
-    avdecc_local_entity_acquire_entity_cb const onResult);
-
-*/
 
     // LA_AVDECC_LocalEntity_releaseEntity
     // LA_AVDECC_LocalEntity_lockEntity
