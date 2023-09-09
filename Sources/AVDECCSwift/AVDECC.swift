@@ -233,11 +233,20 @@ public final class ProtocolInterface {
         }
     }
 
-    public init(type: avdecc_protocol_interface_type_e, interfaceID: String, executorName: String = DefaultExecutorName) throws {
+    public init(
+        type: avdecc_protocol_interface_type_e,
+        interfaceID: String,
+        executorName: String = DefaultExecutorName
+    ) throws {
         var handle: UnsafeMutableRawPointer!
 
         try withProtocolInterfaceError {
-            LA_AVDECC_ProtocolInterface_create(UInt8(type.rawValue), interfaceID, executorName, &handle)
+            LA_AVDECC_ProtocolInterface_create(
+                UInt8(type.rawValue),
+                interfaceID,
+                executorName,
+                &handle
+            )
         }
 
         self.handle = handle
@@ -252,7 +261,10 @@ public final class ProtocolInterface {
         observerThunk.onRemoteEntityUpdated = onRemoteEntityUpdated
 
         self.observerThunk = observerThunk
-        LA_AVDECC_ProtocolInterface_setApplicationData(handle, Unmanaged.passUnretained(self).toOpaque())
+        LA_AVDECC_ProtocolInterface_setApplicationData(
+            handle,
+            Unmanaged.passUnretained(self).toOpaque()
+        )
     }
 
     deinit {
@@ -318,7 +330,10 @@ public final class ProtocolInterface {
         }
     }
 
-    public func setEntityNeedsAdvertise(localEntity: LocalEntity, flags: avdecc_local_entity_advertise_flags_t) throws {
+    public func setEntityNeedsAdvertise(
+        localEntity: LocalEntity,
+        flags: avdecc_local_entity_advertise_flags_t
+    ) throws {
         try withProtocolInterfaceError {
             LA_AVDECC_ProtocolInterface_setEntityNeedsAdvertise(handle, localEntity.handle, flags)
         }
@@ -481,7 +496,8 @@ public final class ProtocolInterface {
 
     func onLocalEntityOnline(
         handle: UnsafeMutableRawPointer?,
-        entity: avdecc_entity_cp?) {
+        entity: avdecc_entity_cp?
+    ) {
         withObserver(handle) {
             $0.observer?.onLocalEntityOnline($0, entity!.pointee)
         }
@@ -495,7 +511,7 @@ public final class ProtocolInterface {
             $0.observer?.onLocalEntityOffline($0, id: entityID)
         }
     }
-    
+
     func onLocalEntityUpdated(
         handle: UnsafeMutableRawPointer?,
         entity: avdecc_entity_cp?
@@ -504,7 +520,7 @@ public final class ProtocolInterface {
             $0.observer?.onLocalEntityUpdated($0, entity!.pointee)
         }
     }
-    
+
     func onRemoteEntityOnline(
         handle: UnsafeMutableRawPointer?,
         entity: avdecc_entity_cp?
@@ -513,7 +529,7 @@ public final class ProtocolInterface {
             $0.observer?.onRemoteEntityOnline($0, entity!.pointee)
         }
     }
-    
+
     func onRemoteEntityOffline(
         handle: UnsafeMutableRawPointer?,
         entityID: avdecc_unique_identifier_t
@@ -522,7 +538,7 @@ public final class ProtocolInterface {
             $0.observer?.onRemoteEntityOffline($0, id: entityID)
         }
     }
-    
+
     func onRemoteEntityUpdated(
         handle: UnsafeMutableRawPointer?,
         entity: avdecc_entity_cp?
@@ -598,10 +614,12 @@ public final class LocalEntity {
         }
     }
 
-    public func acquireEntity(id entityID: avdecc_unique_identifier_t,
+    public func acquireEntity(
+        id entityID: avdecc_unique_identifier_t,
         isPersistent: Bool,
         descriptorType: avdecc_entity_model_descriptor_type_t,
-        descriptorIndex: avdecc_entity_model_descriptor_index_t) async throws -> (avdecc_local_entity_aem_command_status_t, avdecc_unique_identifier_t) {
+        descriptorIndex: avdecc_entity_model_descriptor_index_t
+    ) async throws -> (avdecc_local_entity_aem_command_status_t, avdecc_unique_identifier_t) {
         return try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
             (avdecc_local_entity_aem_command_status_t, avdecc_unique_identifier_t),
             Error
@@ -611,11 +629,13 @@ public final class LocalEntity {
                 return
             }
 
-            let err = LA_AVDECC_LocalEntity_acquireEntity_block(self.handle,
+            let err = LA_AVDECC_LocalEntity_acquireEntity_block(
+                self.handle,
                 entityID,
                 isPersistent ? 1 : 0,
                 descriptorType,
-                descriptorIndex) { handle, entityID, status, owningEntity, descriptorType, descriptorIndex in
+                descriptorIndex
+            ) { _, _, status, owningEntity, _, _ in
                 continuation.resume(returning: (status, owningEntity))
             }
             guard err != 0 else {
