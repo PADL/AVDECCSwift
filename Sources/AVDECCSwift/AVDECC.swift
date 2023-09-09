@@ -209,90 +209,27 @@ public protocol ProtocolInterfaceObserver {
     func onRemoteEntityUpdated(_: ProtocolInterface, _: avdecc_entity_t)
 }
 
-private func ProtocolInterface_onTransportError(handle: UnsafeMutableRawPointer?) {
-    ProtocolInterface.withObserver(handle) {
-        await $0.observer?.onTransportError($0)
-    }
-}
-
-private func ProtocolInterface_onLocalEntityOnline(
-    handle: UnsafeMutableRawPointer?,
-    entity: avdecc_entity_cp?
-) {
-    ProtocolInterface.withObserver(handle) {
-        await $0.observer?.onLocalEntityOnline($0, entity!.pointee)
-    }
-}
-
-private func ProtocolInterface_onLocalEntityOffline(
-    handle: UnsafeMutableRawPointer?,
-    entityID: avdecc_unique_identifier_t
-) {
-    ProtocolInterface.withObserver(handle) {
-        await $0.observer?.onLocalEntityOffline($0, id: entityID)
-    }
-}
-
-private func ProtocolInterface_onLocalEntityUpdated(
-    handle: UnsafeMutableRawPointer?,
-    entity: avdecc_entity_cp?
-) {
-    ProtocolInterface.withObserver(handle) {
-        await $0.observer?.onLocalEntityUpdated($0, entity!.pointee)
-    }
-}
-
-private func ProtocolInterface_onRemoteEntityOnline(
-    handle: UnsafeMutableRawPointer?,
-    entity: avdecc_entity_cp?
-) {
-    ProtocolInterface.withObserver(handle) {
-        await $0.observer?.onRemoteEntityOnline($0, entity!.pointee)
-    }
-}
-
-private func ProtocolInterface_onRemoteEntityOffline(
-    handle: UnsafeMutableRawPointer?,
-    entityID: avdecc_unique_identifier_t
-) {
-    ProtocolInterface.withObserver(handle) {
-        await $0.observer?.onRemoteEntityOffline($0, id: entityID)
-    }
-}
-
-private func ProtocolInterface_onRemoteEntityUpdated(
-    handle: UnsafeMutableRawPointer?,
-    entity: avdecc_entity_cp?
-) {
-    ProtocolInterface.withObserver(handle) {
-        await $0.observer?.onRemoteEntityUpdated($0, entity!.pointee)
-    }
-}
-
-// Note: needs to be an actor as _Block() wrappers are not thread-safe
-public actor ProtocolInterface {
+public final class ProtocolInterface {
     public var observer: ProtocolInterfaceObserver? {
         didSet {
             var observerThunk = observerThunk
             if observer != nil {
-                LA_AVDECC_ProtocolInterface_registerObserver(handle, &observerThunk)
+                LA_AVDECC_ProtocolInterface_registerObserver_block(handle, &observerThunk)
             } else {
-                LA_AVDECC_ProtocolInterface_unregisterObserver(handle, &observerThunk)
+                LA_AVDECC_ProtocolInterface_unregisterObserver_block(handle, &observerThunk)
             }
         }
     }
 
-    nonisolated let handle: UnsafeMutableRawPointer!
-    nonisolated let observerThunk: avdecc_protocol_interface_observer_t
+    let handle: UnsafeMutableRawPointer!
+    let observerThunk: avdecc_protocol_interface_block_observer_t
 
-    static func withObserver(
+    func withObserver(
         _ handle: UnsafeMutableRawPointer?,
-        _ body: @escaping (ProtocolInterface) async -> ()
+        _ body: @escaping (ProtocolInterface) -> ()
     ) {
         if let handle, let this = LA_AVDECC_ProtocolInterface_getApplicationData(handle) {
-            Task {
-                await body(Unmanaged<ProtocolInterface>.fromOpaque(this).takeUnretainedValue())
-            }
+            body(Unmanaged<ProtocolInterface>.fromOpaque(this).takeUnretainedValue())
         }
     }
 
@@ -305,14 +242,14 @@ public actor ProtocolInterface {
 
         self.handle = handle
 
-        var observerThunk = avdecc_protocol_interface_observer_t()
-        observerThunk.onTransportError = ProtocolInterface_onTransportError
-        observerThunk.onLocalEntityOnline = ProtocolInterface_onLocalEntityOnline
-        observerThunk.onLocalEntityOffline = ProtocolInterface_onLocalEntityOffline
-        observerThunk.onLocalEntityUpdated = ProtocolInterface_onLocalEntityUpdated
-        observerThunk.onRemoteEntityOnline = ProtocolInterface_onRemoteEntityOnline
-        observerThunk.onRemoteEntityOffline = ProtocolInterface_onRemoteEntityOffline
-        observerThunk.onRemoteEntityUpdated = ProtocolInterface_onRemoteEntityUpdated
+        var observerThunk = avdecc_protocol_interface_block_observer_t()
+        observerThunk.onTransportError = onTransportError
+        observerThunk.onLocalEntityOnline = onLocalEntityOnline
+        observerThunk.onLocalEntityOffline = onLocalEntityOffline
+        observerThunk.onLocalEntityUpdated = onLocalEntityUpdated
+        observerThunk.onRemoteEntityOnline = onRemoteEntityOnline
+        observerThunk.onRemoteEntityOffline = onRemoteEntityOffline
+        observerThunk.onRemoteEntityUpdated = onRemoteEntityUpdated
 
         self.observerThunk = observerThunk
         LA_AVDECC_ProtocolInterface_setApplicationData(handle, Unmanaged.passUnretained(self).toOpaque())
@@ -534,6 +471,65 @@ public actor ProtocolInterface {
 
     public var isSelfLocked: Bool {
         LA_AVDECC_ProtocolInterface_isSelfLocked(handle) != 0
+    }
+
+    func onTransportError(handle: UnsafeMutableRawPointer?) {
+        withObserver(handle) {
+            $0.observer?.onTransportError($0)
+        }
+    }
+
+    func onLocalEntityOnline(
+        handle: UnsafeMutableRawPointer?,
+        entity: avdecc_entity_cp?) {
+        withObserver(handle) {
+            $0.observer?.onLocalEntityOnline($0, entity!.pointee)
+        }
+    }
+
+    func onLocalEntityOffline(
+        handle: UnsafeMutableRawPointer?,
+        entityID: avdecc_unique_identifier_t
+    ) {
+        withObserver(handle) {
+            $0.observer?.onLocalEntityOffline($0, id: entityID)
+        }
+    }
+    
+    func onLocalEntityUpdated(
+        handle: UnsafeMutableRawPointer?,
+        entity: avdecc_entity_cp?
+    ) {
+        withObserver(handle) {
+            $0.observer?.onLocalEntityUpdated($0, entity!.pointee)
+        }
+    }
+    
+    func onRemoteEntityOnline(
+        handle: UnsafeMutableRawPointer?,
+        entity: avdecc_entity_cp?
+    ) {
+        withObserver(handle) {
+            $0.observer?.onRemoteEntityOnline($0, entity!.pointee)
+        }
+    }
+    
+    func onRemoteEntityOffline(
+        handle: UnsafeMutableRawPointer?,
+        entityID: avdecc_unique_identifier_t
+    ) {
+        withObserver(handle) {
+            $0.observer?.onRemoteEntityOffline($0, id: entityID)
+        }
+    }
+    
+    func onRemoteEntityUpdated(
+        handle: UnsafeMutableRawPointer?,
+        entity: avdecc_entity_cp?
+    ) {
+        withObserver(handle) {
+            $0.observer?.onRemoteEntityUpdated($0, entity!.pointee)
+        }
     }
 }
 
