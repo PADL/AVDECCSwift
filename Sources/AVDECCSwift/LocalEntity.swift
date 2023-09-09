@@ -39,12 +39,20 @@ func withLocalEntityError(_ block: () -> avdecc_local_entity_error_t) throws {
 
 public protocol LocalEntityDelegate {
     func onTransportError(_: LocalEntity)
+    func onEntityOnline(_: LocalEntity, id: UniqueIdentifier, entity: Entity)
+    func onEntityUpdate(_: LocalEntity, id: UniqueIdentifier, entity: Entity)
+    func onEntityOffline(_: LocalEntity, id: UniqueIdentifier)
 }
 
 public final class LocalEntity {
     static var DelegateThunk: avdecc_local_entity_controller_delegate_t = {
         var thunk = avdecc_local_entity_controller_delegate_t()
+
         thunk.onTransportError = LocalEntity_onTransportError
+        thunk.onEntityOnline = LocalEntity_onEntityOnline
+        thunk.onEntityUpdate = LocalEntity_onEntityUpdate
+        thunk.onEntityOffline = LocalEntity_onEntityOffline
+
         return thunk
     }()
 
@@ -60,7 +68,7 @@ public final class LocalEntity {
         }
     }
 
-    init(_ protocolInterfaceHandle: UnsafeMutableRawPointer, entity: avdecc_entity_t) throws {
+    init(_ protocolInterfaceHandle: UnsafeMutableRawPointer, entity: Entity) throws {
         var entity = entity
         var thunk = LocalEntity.DelegateThunk
 
@@ -74,7 +82,7 @@ public final class LocalEntity {
         )
     }
 
-    public convenience init(protocolInterface: ProtocolInterface, entity: avdecc_entity_t) throws {
+    public convenience init(protocolInterface: ProtocolInterface, entity: Entity) throws {
         try self.init(protocolInterface.handle, entity: entity)
     }
 
@@ -102,7 +110,7 @@ public final class LocalEntity {
         }
     }
 
-    public func discoverRemoteEntity(id: avdecc_unique_identifier_t) throws {
+    public func discoverRemoteEntity(id: UniqueIdentifier) throws {
         try withLocalEntityError {
             LA_AVDECC_LocalEntity_discoverRemoteEntity(handle, id)
         }
@@ -115,13 +123,13 @@ public final class LocalEntity {
     }
 
     public func acquireEntity(
-        id entityID: avdecc_unique_identifier_t,
+        id entityID: UniqueIdentifier,
         isPersistent: Bool,
         descriptorType: avdecc_entity_model_descriptor_type_t,
         descriptorIndex: avdecc_entity_model_descriptor_index_t
-    ) async throws -> (avdecc_local_entity_aem_command_status_t, avdecc_unique_identifier_t) {
+    ) async throws -> (avdecc_local_entity_aem_command_status_t, UniqueIdentifier) {
         return try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            (avdecc_local_entity_aem_command_status_t, avdecc_unique_identifier_t),
+            (avdecc_local_entity_aem_command_status_t, UniqueIdentifier),
             Error
         >) in
             guard let self else {
@@ -241,5 +249,31 @@ public final class LocalEntity {
 private func LocalEntity_onTransportError(handle: UnsafeMutableRawPointer?) {
     LocalEntity.withDelegate(handle) {
         $0.delegate?.onTransportError($0)
+    }
+}
+
+private func LocalEntity_onEntityOnline(
+    _ handle: UnsafeMutableRawPointer?,
+    _ entityID: UniqueIdentifier,
+    _ entity: avdecc_entity_cp?) {
+    LocalEntity.withDelegate(handle) {
+        $0.delegate?.onEntityOnline($0, id: entityID, entity: entity!.pointee)
+    }
+}
+
+private func LocalEntity_onEntityUpdate(
+    _ handle: UnsafeMutableRawPointer?,
+    _ entityID: UniqueIdentifier,
+    _ entity: avdecc_entity_cp?) {
+    LocalEntity.withDelegate(handle) {
+        $0.delegate?.onEntityUpdate($0, id: entityID, entity: entity!.pointee)
+    }
+}
+
+private func LocalEntity_onEntityOffline(
+    _ handle: UnsafeMutableRawPointer?,
+    _ entityID: UniqueIdentifier) {
+    LocalEntity.withDelegate(handle) {
+        $0.delegate?.onEntityOffline($0, id: entityID)
     }
 }
