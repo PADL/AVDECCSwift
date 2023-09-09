@@ -41,7 +41,6 @@ public protocol LocalEntityDelegate {
     func onTransportError(_: LocalEntity)
 }
 
-
 public final class LocalEntity {
     static var DelegateThunk: avdecc_local_entity_controller_delegate_t = {
         var thunk = avdecc_local_entity_controller_delegate_t()
@@ -70,7 +69,7 @@ public final class LocalEntity {
         }
 
         LA_AVDECC_LocalEntity_setApplicationData(
-            self.handle,
+            handle,
             Unmanaged.passUnretained(self).toOpaque()
         )
     }

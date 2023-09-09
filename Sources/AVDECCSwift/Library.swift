@@ -43,5 +43,3 @@ final class Library {
         LA_AVDECC_uninitialize()
     }
 }
-
-
