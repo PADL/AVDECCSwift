@@ -255,7 +255,8 @@ private func LocalEntity_onTransportError(handle: UnsafeMutableRawPointer?) {
 private func LocalEntity_onEntityOnline(
     _ handle: UnsafeMutableRawPointer?,
     _ entityID: UniqueIdentifier,
-    _ entity: avdecc_entity_cp?) {
+    _ entity: avdecc_entity_cp?
+) {
     LocalEntity.withDelegate(handle) {
         $0.delegate?.onEntityOnline($0, id: entityID, entity: entity!.pointee)
     }
@@ -264,7 +265,8 @@ private func LocalEntity_onEntityOnline(
 private func LocalEntity_onEntityUpdate(
     _ handle: UnsafeMutableRawPointer?,
     _ entityID: UniqueIdentifier,
-    _ entity: avdecc_entity_cp?) {
+    _ entity: avdecc_entity_cp?
+) {
     LocalEntity.withDelegate(handle) {
         $0.delegate?.onEntityUpdate($0, id: entityID, entity: entity!.pointee)
     }
@@ -272,7 +274,8 @@ private func LocalEntity_onEntityUpdate(
 
 private func LocalEntity_onEntityOffline(
     _ handle: UnsafeMutableRawPointer?,
-    _ entityID: UniqueIdentifier) {
+    _ entityID: UniqueIdentifier
+) {
     LocalEntity.withDelegate(handle) {
         $0.delegate?.onEntityOffline($0, id: entityID)
     }
