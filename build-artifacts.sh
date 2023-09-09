@@ -2,13 +2,13 @@
 
 set -e
 
-git submodule init
-git submodule update
+#git submodule init
+#git submodule update
 
-pushd Sources/CAVDECC/avdecc
-git submodule init
-git submodule update
-popd
+#pushd Sources/CAVDECC/avdecc
+#git submodule init
+#git submodule update
+#popd
 
 ARCH=`arch`
 
@@ -29,9 +29,11 @@ fi
 if [ "$PLATFORM" == "mac" ]; then
     export PATH="$(brew --prefix grep)/libexec/gnubin:$(brew --prefix bash)/bin:$PATH"
     ARCHS="-arch x64 -arch arm64"
+    CLANGBINDIR=/usr/bin
     SOSUFFIX=dylib;
 else
     ARCHS="-arch ${ARCH}"
+    CLANGBINDIR=/opt/swift/usr/bin
     SOSUFFIX=so;
 fi
 
@@ -40,7 +42,14 @@ BUILDDIR="_build_${PLATFORM}_${ARCH}_makefiles_debug"
 pushd Sources/CAVDECC/avdecc
 echo "Build directory is $BUILDDIR"
 #rm -rf $BUILDDIR
-./gen_cmake.sh ${ARCHS} -debug -build-c -c "Unix Makefiles"
+./gen_cmake.sh ${ARCHS} \
+    -a "-DCMAKE_C_FLAGS=-fblocks" \
+    -a "-DCMAKE_CXX_FLAGS=-fblocks" \
+    -a "-DCMAKE_C_COMPILER=${CLANGBINDIR}/clang" \
+    -a "-DCMAKE_CXX_COMPILER=${CLANGBINDIR}/clang++" \
+    -c "Unix Makefiles" \
+    -debug \
+    -build-c
 
 cp ../../../info.json.in info.json
 pushd $BUILDDIR

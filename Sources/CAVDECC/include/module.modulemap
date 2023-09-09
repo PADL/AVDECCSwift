@@ -1,4 +1,3 @@
 module CAVDECC {
     umbrella header "../avdecc/include/la/avdecc/avdecc.h"
-    header "CAVDECCShims.h"
 }

@@ -19,6 +19,8 @@
 
 import CAVDECC
 
+public let DefaultExecutorName = "avdecc::protocol::PI"
+
 extension UnsafePointer {
     func propertyBasePointer<Property>(to property: KeyPath<Pointee, Property>)
         -> UnsafePointer<Property>?
@@ -132,8 +134,8 @@ public final class Executor {
     let library = Library()
     var handle: UnsafeMutableRawPointer!
 
-    public init() throws {
-        let err = LA_AVDECC_Executor_createQueueExecutor("AVDECCSwift", &handle)
+    public init(name: String = DefaultExecutorName) throws {
+        let err = LA_AVDECC_Executor_createQueueExecutor(name, &handle)
         if err != 0 {
             throw ExecutorError(err)
         }
@@ -269,9 +271,6 @@ private func ProtocolInterface_onRemoteEntityUpdated(
 
 // Note: needs to be an actor as _Block() wrappers are not thread-safe
 public actor ProtocolInterface {
-    // FIXME: add support for private data to avdecc
-    static var map = ThreadSafeDictionary<UnsafeMutableRawPointer, ProtocolInterface>()
-
     public var observer: ProtocolInterfaceObserver? {
         didSet {
             var observerThunk = observerThunk
@@ -290,18 +289,18 @@ public actor ProtocolInterface {
         _ handle: UnsafeMutableRawPointer?,
         _ body: @escaping (ProtocolInterface) async -> ()
     ) {
-        if let handle, let this = ProtocolInterface.map[handle] {
+        if let handle, let this = LA_AVDECC_ProtocolInterface_getApplicationData(handle) {
             Task {
-                await body(this)
+                await body(Unmanaged<ProtocolInterface>.fromOpaque(this).takeUnretainedValue())
             }
         }
     }
 
-    public init(type: avdecc_protocol_interface_type_e, interfaceID: String) throws {
+    public init(type: avdecc_protocol_interface_type_e, interfaceID: String, executorName: String = DefaultExecutorName) throws {
         var handle: UnsafeMutableRawPointer!
 
         try withProtocolInterfaceError {
-            LA_AVDECC_ProtocolInterface_create(UInt8(type.rawValue), interfaceID, &handle)
+            LA_AVDECC_ProtocolInterface_create(UInt8(type.rawValue), interfaceID, executorName, &handle)
         }
 
         self.handle = handle
@@ -316,12 +315,12 @@ public actor ProtocolInterface {
         observerThunk.onRemoteEntityUpdated = ProtocolInterface_onRemoteEntityUpdated
 
         self.observerThunk = observerThunk
-        Self.map[handle] = self
+        LA_AVDECC_ProtocolInterface_setApplicationData(handle, Unmanaged.passUnretained(self).toOpaque())
     }
 
     deinit {
         if handle != nil {
-            Self.map[handle] = nil
+            LA_AVDECC_ProtocolInterface_setApplicationData(handle, nil)
             LA_AVDECC_ProtocolInterface_destroy(handle)
         }
     }
@@ -433,7 +432,7 @@ public actor ProtocolInterface {
             Error
         >) in
             var pdu = pdu
-            let err = LA_AVDECC_ProtocolInterface_sendAemAecpCommand_Block(
+            let err = LA_AVDECC_ProtocolInterface_sendAemAecpCommand_block(
                 self?.handle,
                 &pdu
             ) { response, err in
@@ -465,7 +464,7 @@ public actor ProtocolInterface {
             Error
         >) in
             var pdu = pdu
-            let err = LA_AVDECC_ProtocolInterface_sendMvuAecpCommand_Block(
+            let err = LA_AVDECC_ProtocolInterface_sendMvuAecpCommand_block(
                 self?.handle,
                 &pdu
             ) { response, err in
@@ -497,7 +496,7 @@ public actor ProtocolInterface {
             Error
         >) in
             var pdu = pdu
-            let err = LA_AVDECC_ProtocolInterface_sendAcmpCommand_Block(
+            let err = LA_AVDECC_ProtocolInterface_sendAcmpCommand_block(
                 self?.handle,
                 &pdu
             ) { response, err in
