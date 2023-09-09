@@ -19,144 +19,6 @@
 
 import CAVDECC
 
-public let DefaultExecutorName = "avdecc::protocol::PI"
-
-public typealias Entity = avdecc_entity_t
-public typealias UniqueIdentifier = avdecc_unique_identifier_t
-
-extension UnsafePointer {
-    func propertyBasePointer<Property>(to property: KeyPath<Pointee, Property>)
-        -> UnsafePointer<Property>?
-    {
-        guard let offset = MemoryLayout<Pointee>.offset(of: property) else { return nil }
-        return (UnsafeRawPointer(self) + offset).assumingMemoryBound(to: Property.self)
-    }
-}
-
-public extension avdecc_entity_t {
-    func forEachInterface(_ block: (avdecc_entity_interface_information_cp) throws -> ()) rethrows {
-        var interfaces_information = interfaces_information
-        try withUnsafePointer(to: &interfaces_information) { first in
-            var next = first.pointee.next
-
-            try block(first)
-
-            while next != nil {
-                try block(next!)
-                next = next?.pointee.next
-            }
-        }
-    }
-}
-
-public extension avdecc_entity_model_entity_descriptor_s {
-    var entityName: String {
-        String(avdeccFixedString: entity_name)
-    }
-
-    var firmwareVersion: String {
-        String(avdeccFixedString: firmware_version)
-    }
-
-    var groupName: String {
-        String(avdeccFixedString: group_name)
-    }
-
-    var serialNumber: String {
-        String(avdeccFixedString: serial_number)
-    }
-}
-
-protocol ObjectNameable {
-    var object_name: avdecc_fixed_string_t { get }
-}
-
-extension ObjectNameable {
-    public var objectName: String {
-        String(avdeccFixedString: object_name)
-    }
-}
-
-extension avdecc_entity_model_configuration_descriptor_s: ObjectNameable {}
-extension avdecc_entity_model_audio_unit_descriptor_s: ObjectNameable {}
-extension avdecc_entity_model_stream_descriptor_s: ObjectNameable {}
-extension avdecc_entity_model_jack_descriptor_s: ObjectNameable {}
-extension avdecc_entity_model_avb_interface_descriptor_s: ObjectNameable {}
-extension avdecc_entity_model_clock_source_descriptor_s: ObjectNameable {}
-extension avdecc_entity_model_memory_object_descriptor_s: ObjectNameable {}
-extension avdecc_entity_model_audio_cluster_descriptor_s: ObjectNameable {}
-extension avdecc_entity_model_clock_domain_descriptor_s: ObjectNameable {}
-
-public extension avdecc_entity_model_locale_descriptor_s {
-    var localeID: String {
-        String(avdeccFixedString: locale_id)
-    }
-}
-
-final class Library {
-    static var shared = Library()
-
-    private static func isCompatibleWithInterfaceVersion(_ version: Int32) -> Bool {
-        LA_AVDECC_isCompatibleWithInterfaceVersion(avdecc_interface_version_t(version)) != 0
-    }
-
-    public static var interfaceVersion: avdecc_interface_version_t {
-        LA_AVDECC_getInterfaceVersion()
-    }
-
-    public static var version: String {
-        String(cString: LA_AVDECC_getVersion())
-    }
-
-    init() {
-        precondition(Self.isCompatibleWithInterfaceVersion(LA_AVDECC_InterfaceVersion))
-        LA_AVDECC_initialize()
-    }
-
-    deinit {
-        LA_AVDECC_uninitialize()
-    }
-}
-
-public enum ExecutorError: UInt8, Error {
-    case alreadyExists = 1
-    case notFound = 2
-    case invalidProtocolInterfaceHandle = 98
-    case internalError = 99
-
-    init(_ value: avdecc_executor_error_t) {
-        self = Self(rawValue: value) ?? .internalError
-    }
-}
-
-// FIXME: integrate C++ library with libdispatch
-
-public final class Executor {
-    public let shared = try! Executor()
-
-    let library = Library()
-    var handle: UnsafeMutableRawPointer!
-
-    public init(name: String = DefaultExecutorName) throws {
-        let err = LA_AVDECC_Executor_createQueueExecutor(name, &handle)
-        if err != 0 {
-            throw ExecutorError(err)
-        }
-    }
-
-    deinit {
-        if handle != nil {
-            LA_AVDECC_Executor_destroy(handle)
-        }
-    }
-}
-
-public extension avdecc_unique_identifier_t {
-    static var null: Self {
-        LA_AVDECC_getNullUniqueIdentifier()
-    }
-}
-
 public enum ProtocolInterfaceError: UInt8, Error {
     case transportError = 1
     case timeout = 2
@@ -213,8 +75,31 @@ public protocol ProtocolInterfaceObserver {
 }
 
 public final class ProtocolInterface {
+    static var ObserverThunk: avdecc_protocol_interface_observer_t = {
+        var thunk = avdecc_protocol_interface_observer_t()
+        thunk.onTransportError = ProtocolInterface_onTransportError
+        thunk.onLocalEntityOnline = ProtocolInterface_onLocalEntityOnline
+        thunk.onLocalEntityOffline = ProtocolInterface_onLocalEntityOffline
+        thunk.onLocalEntityUpdated = ProtocolInterface_onLocalEntityUpdated
+        thunk.onRemoteEntityOnline = ProtocolInterface_onRemoteEntityOnline
+        thunk.onRemoteEntityOffline = ProtocolInterface_onRemoteEntityOffline
+        thunk.onRemoteEntityUpdated = ProtocolInterface_onRemoteEntityUpdated
+
+        return thunk
+    }()
+
     let handle: UnsafeMutableRawPointer!
-    public var observer: ProtocolInterfaceObserver?
+
+    public var observer: ProtocolInterfaceObserver? {
+        didSet {
+            var thunk = ProtocolInterface.ObserverThunk
+            if observer != nil {
+                LA_AVDECC_ProtocolInterface_registerObserver(handle, &thunk)
+            } else {
+                LA_AVDECC_ProtocolInterface_unregisterObserver(handle, &thunk)
+            }
+        }
+    }
 
     static func withObserver(
         _ handle: UnsafeMutableRawPointer?,
@@ -244,7 +129,7 @@ public final class ProtocolInterface {
         self.handle = handle
 
         LA_AVDECC_ProtocolInterface_setApplicationData(
-            handle,
+            self.handle,
             Unmanaged.passUnretained(self).toOpaque()
         )
     }
@@ -471,215 +356,6 @@ public final class ProtocolInterface {
     }
 }
 
-public enum LocalEntityError: UInt8, Error {
-    case invalidParameters = 1
-    case duplicateLocalIdentityID = 2
-    case invalidEntityHandle = 98
-    case internalError = 99
-
-    init(_ value: avdecc_local_entity_error_t) {
-        self = Self(rawValue: value) ?? .internalError
-    }
-}
-
-func withLocalEntityError(_ block: () -> avdecc_local_entity_error_t) throws {
-    let err = block()
-    if err != 0 {
-        throw LocalEntityError(err)
-    }
-}
-
-public final class LocalEntity {
-    var delegate: avdecc_local_entity_controller_delegate_p?
-    var handle: UnsafeMutableRawPointer!
-
-    init(_ protocolInterfaceHandle: UnsafeMutableRawPointer, entity: avdecc_entity_t) throws {
-        var entity = entity
-        try withLocalEntityError {
-            LA_AVDECC_LocalEntity_create(protocolInterfaceHandle, &entity, delegate, &handle)
-        }
-    }
-
-    public convenience init(protocolInterface: ProtocolInterface, entity: avdecc_entity_t) throws {
-        try self.init(protocolInterface.handle, entity: entity)
-    }
-
-    deinit {
-        if handle != nil {
-            LA_AVDECC_LocalEntity_destroy(handle)
-        }
-    }
-
-    public func enableEntityAdvertising(availableDuration: CUnsignedInt) throws {
-        try withLocalEntityError {
-            LA_AVDECC_LocalEntity_enableEntityAdvertising(handle, availableDuration)
-        }
-    }
-
-    public func disableEntityAdvertising() throws {
-        try withLocalEntityError {
-            LA_AVDECC_LocalEntity_disableEntityAdvertising(handle)
-        }
-    }
-
-    public func discoverRemoteEntities() throws {
-        try withLocalEntityError {
-            LA_AVDECC_LocalEntity_discoverRemoteEntities(handle)
-        }
-    }
-
-    public func discoverRemoteEntity(id: avdecc_unique_identifier_t) throws {
-        try withLocalEntityError {
-            LA_AVDECC_LocalEntity_discoverRemoteEntity(handle, id)
-        }
-    }
-
-    public func setAutomaticDiscoveryDelay(_ millisecondsDelay: CUnsignedInt) throws {
-        try withLocalEntityError {
-            LA_AVDECC_LocalEntity_setAutomaticDiscoveryDelay(handle, millisecondsDelay)
-        }
-    }
-
-    public func acquireEntity(
-        id entityID: avdecc_unique_identifier_t,
-        isPersistent: Bool,
-        descriptorType: avdecc_entity_model_descriptor_type_t,
-        descriptorIndex: avdecc_entity_model_descriptor_index_t
-    ) async throws -> (avdecc_local_entity_aem_command_status_t, avdecc_unique_identifier_t) {
-        return try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            (avdecc_local_entity_aem_command_status_t, avdecc_unique_identifier_t),
-            Error
-        >) in
-            guard let self else {
-                continuation.resume(throwing: LocalEntityError.internalError)
-                return
-            }
-
-            let err = LA_AVDECC_LocalEntity_acquireEntity_block(
-                self.handle,
-                entityID,
-                isPersistent ? 1 : 0,
-                descriptorType,
-                descriptorIndex
-            ) { _, _, status, owningEntity, _, _ in
-                continuation.resume(returning: (status, owningEntity))
-            }
-            guard err != 0 else {
-                continuation.resume(throwing: LocalEntityError(err))
-                return
-            }
-        }
-    }
-
-    // LA_AVDECC_LocalEntity_releaseEntity
-    // LA_AVDECC_LocalEntity_lockEntity
-    // LA_AVDECC_LocalEntity_unlockEntity
-    // LA_AVDECC_LocalEntity_queryEntityAvailable
-    // LA_AVDECC_LocalEntity_queryControllerAvailable
-    // LA_AVDECC_LocalEntity_registerUnsolicitedNotifications
-    // LA_AVDECC_LocalEntity_unregisterUnsolicitedNotifications
-    // LA_AVDECC_LocalEntity_readEntityDescriptor
-    // LA_AVDECC_LocalEntity_readConfigurationDescriptor
-    // LA_AVDECC_LocalEntity_readAudioUnitDescriptor
-    // LA_AVDECC_LocalEntity_readStreamInputDescriptor
-    // LA_AVDECC_LocalEntity_readStreamOutputDescriptor
-    // LA_AVDECC_LocalEntity_readJackInputDescriptor
-    // LA_AVDECC_LocalEntity_readJackOutputDescriptor
-    // LA_AVDECC_LocalEntity_readAvbInterfaceDescriptor
-    // LA_AVDECC_LocalEntity_readClockSourceDescriptor
-    // LA_AVDECC_LocalEntity_readMemoryObjectDescriptor
-    // LA_AVDECC_LocalEntity_readLocaleDescriptor
-    // LA_AVDECC_LocalEntity_readStringsDescriptor
-    // LA_AVDECC_LocalEntity_readStreamPortInputDescriptor
-    // LA_AVDECC_LocalEntity_readStreamPortOutputDescriptor
-    // LA_AVDECC_LocalEntity_readExternalPortInputDescriptor
-    // LA_AVDECC_LocalEntity_readExternalPortOutputDescriptor
-    // LA_AVDECC_LocalEntity_readInternalPortInputDescriptor
-    // LA_AVDECC_LocalEntity_readInternalPortOutputDescriptor
-    // LA_AVDECC_LocalEntity_readAudioClusterDescriptor
-    // LA_AVDECC_LocalEntity_readAudioMapDescriptor
-    // LA_AVDECC_LocalEntity_readClockDomainDescriptor
-    // LA_AVDECC_LocalEntity_setConfiguration
-    // LA_AVDECC_LocalEntity_getConfiguration
-    // LA_AVDECC_LocalEntity_setStreamInputFormat
-    // LA_AVDECC_LocalEntity_getStreamInputFormat
-    // LA_AVDECC_LocalEntity_setStreamOutputFormat
-    // LA_AVDECC_LocalEntity_getStreamOutputFormat
-    // LA_AVDECC_LocalEntity_getStreamPortInputAudioMap
-    // LA_AVDECC_LocalEntity_getStreamPortOutputAudioMap
-    // LA_AVDECC_LocalEntity_addStreamPortInputAudioMappings
-    // LA_AVDECC_LocalEntity_addStreamPortOutputAudioMappings
-    // LA_AVDECC_LocalEntity_removeStreamPortInputAudioMappings
-    // LA_AVDECC_LocalEntity_removeStreamPortOutputAudioMappings
-    // LA_AVDECC_LocalEntity_setStreamInputInfo
-    // LA_AVDECC_LocalEntity_setStreamOutputInfo
-    // LA_AVDECC_LocalEntity_getStreamInputInfo
-    // LA_AVDECC_LocalEntity_getStreamOutputInfo
-    // LA_AVDECC_LocalEntity_setEntityName
-    // LA_AVDECC_LocalEntity_getEntityName
-    // LA_AVDECC_LocalEntity_setEntityGroupName
-    // LA_AVDECC_LocalEntity_getEntityGroupName
-    // LA_AVDECC_LocalEntity_setConfigurationName
-    // LA_AVDECC_LocalEntity_getConfigurationName
-    // LA_AVDECC_LocalEntity_setAudioUnitName
-    // LA_AVDECC_LocalEntity_getAudioUnitName
-    // LA_AVDECC_LocalEntity_setStreamInputName
-    // LA_AVDECC_LocalEntity_setStreamOutputName
-    // LA_AVDECC_LocalEntity_getStreamOutputName
-    // LA_AVDECC_LocalEntity_setAvbInterfaceName
-    // LA_AVDECC_LocalEntity_getAvbInterfaceName
-    // LA_AVDECC_LocalEntity_setClockSourceName
-    // LA_AVDECC_LocalEntity_getClockSourceName
-    // LA_AVDECC_LocalEntity_setMemoryObjectName
-    // LA_AVDECC_LocalEntity_getMemoryObjectName
-    // LA_AVDECC_LocalEntity_setAudioClusterName
-    // LA_AVDECC_LocalEntity_getAudioClusterName
-    // LA_AVDECC_LocalEntity_setClockDomainName
-    // LA_AVDECC_LocalEntity_getClockDomainName
-    // LA_AVDECC_LocalEntity_setAudioUnitSamplingRate
-    // LA_AVDECC_LocalEntity_getAudioUnitSamplingRate
-    // LA_AVDECC_LocalEntity_setVideoClusterSamplingRate
-    // LA_AVDECC_LocalEntity_getVideoClusterSamplingRate
-    // LA_AVDECC_LocalEntity_setSensorClusterSamplingRate
-    // LA_AVDECC_LocalEntity_getSensorClusterSamplingRate
-    // LA_AVDECC_LocalEntity_setClockSource
-    // LA_AVDECC_LocalEntity_getClockSource
-    // LA_AVDECC_LocalEntity_startStreamInput
-    // LA_AVDECC_LocalEntity_startStreamOutput
-    // LA_AVDECC_LocalEntity_stopStreamInput
-    // LA_AVDECC_LocalEntity_stopStreamOutput
-    // LA_AVDECC_LocalEntity_getAvbInfo
-    // LA_AVDECC_LocalEntity_getAsPath
-    // LA_AVDECC_LocalEntity_getEntityCounters
-    // LA_AVDECC_LocalEntity_getAvbInterfaceCounters
-    // LA_AVDECC_LocalEntity_getClockDomainCounters
-    // LA_AVDECC_LocalEntity_getStreamInputCounters
-    // LA_AVDECC_LocalEntity_getStreamOutputCounters
-    // LA_AVDECC_LocalEntity_getMilanInfo
-    // LA_AVDECC_LocalEntity_connectStream
-    // LA_AVDECC_LocalEntity_disconnectStream
-    // LA_AVDECC_LocalEntity_disconnectTalkerStream
-    // LA_AVDECC_LocalEntity_getTalkerStreamState
-    // LA_AVDECC_LocalEntity_getListenerStreamState
-    // LA_AVDECC_LocalEntity_getTalkerStreamConnection
-}
-
-public extension String {
-    init(avdeccFixedString: avdecc_fixed_string_t) {
-        self.init(withUnsafePointer(to: avdeccFixedString) { pointer in
-            let start = pointer.propertyBasePointer(to: \.0)!
-            return start.withMemoryRebound(
-                to: UInt8.self,
-                capacity: MemoryLayout.size(ofValue: pointer)
-            ) {
-                String(cString: $0)
-            }
-        })
-    }
-}
-
-/// MARK: ProtocolInterface thunks
-
 private func ProtocolInterface_onTransportError(handle: UnsafeMutableRawPointer?) {
     ProtocolInterface.withObserver(handle) {
         $0.observer?.onTransportError($0)
@@ -739,5 +415,3 @@ private func ProtocolInterface_onRemoteEntityUpdated(
         $0.observer?.onRemoteEntityUpdated($0, entity!.pointee)
     }
 }
-
-
