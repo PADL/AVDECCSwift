@@ -62,7 +62,7 @@ public struct EntityModelEntityDescriptor: AVDECCBridgeable {
     }
 
     func bridgeToAvdeccType() -> AVDECCType {
-        self.descriptor
+        descriptor
     }
 
     public var entityID: UniqueIdentifier { descriptor.entity_id }
@@ -142,34 +142,47 @@ public struct EntityModelAudioUnitDescriptor: Sendable {
     public let samplingRates: [EntityModelSamplingRate]
 
     init(_ descriptor: avdecc_entity_model_audio_unit_descriptor_t) {
-        self.samplingRates = nullTerminatedArrayToSwiftArray(descriptor.sampling_rates)
-    
+        samplingRates = nullTerminatedArrayToSwiftArray(descriptor.sampling_rates)
+
         var descriptor = descriptor
         descriptor.sampling_rates = nil
         self.descriptor = descriptor
     }
 
     public var objectName: String { String(avdeccFixedString: descriptor.object_name) }
-    public var localizedDescription: avdecc_entity_model_localized_string_reference_t { descriptor.localized_description }
+    public var localizedDescription: avdecc_entity_model_localized_string_reference_t {
+        descriptor.localized_description
+    }
+
     public var clockDomainIndex: EntityModelDescriptorIndex { descriptor.clock_domain_index }
 
     public var numberOfStreamInputPorts: UInt16 { descriptor.number_of_stream_input_ports }
     public var baseStreamInputPort: EntityModelDescriptorIndex { descriptor.base_stream_input_port }
 
     public var numberOfStreamOutputPorts: UInt16 { descriptor.number_of_stream_output_ports }
-    public var baseStreamOutputPort: EntityModelDescriptorIndex { descriptor.base_stream_output_port }
+    public var baseStreamOutputPort: EntityModelDescriptorIndex {
+        descriptor.base_stream_output_port
+    }
 
     public var numberOfExternalInputPorts: UInt16 { descriptor.number_of_external_input_ports }
-    public var baseExternalInputPort: EntityModelDescriptorIndex { descriptor.base_external_input_port }
+    public var baseExternalInputPort: EntityModelDescriptorIndex {
+        descriptor.base_external_input_port
+    }
 
     public var numberOfExternalOutputPorts: UInt16 { descriptor.number_of_external_output_ports }
-    public var baseExternalOutputPort: EntityModelDescriptorIndex { descriptor.base_external_output_port }
+    public var baseExternalOutputPort: EntityModelDescriptorIndex {
+        descriptor.base_external_output_port
+    }
 
     public var numberOfInternalInputPorts: UInt16 { descriptor.number_of_internal_input_ports }
-    public var baseInternalInputPort: EntityModelDescriptorIndex { descriptor.base_internal_input_port }
+    public var baseInternalInputPort: EntityModelDescriptorIndex {
+        descriptor.base_internal_input_port
+    }
 
     public var numberOfInternalOutputPorts: UInt16 { descriptor.number_of_external_output_ports }
-    public var baseInternalOutputPort: EntityModelDescriptorIndex { descriptor.base_internal_output_port }
+    public var baseInternalOutputPort: EntityModelDescriptorIndex {
+        descriptor.base_internal_output_port
+    }
 
     public var numberOfControls: UInt16 { descriptor.number_of_controls }
     public var baseControl: EntityModelDescriptorIndex { descriptor.base_control }
@@ -193,8 +206,8 @@ public struct EntityModelAvbInfo: Sendable {
     public let mappings: [EntityModelMsrpMapping]
 
     init(_ info: avdecc_entity_model_avb_info_t) {
-        self.mappings = nullTerminatedArrayToSwiftArray(info.mappings)
-    
+        mappings = nullTerminatedArrayToSwiftArray(info.mappings)
+
         var info = info
         info.mappings = nil
         self.info = info

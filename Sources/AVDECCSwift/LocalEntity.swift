@@ -147,10 +147,15 @@ public final class LocalEntity {
     }
 
     private func invokeHandler<T>(
-        _ handler: (_ handle: UnsafeMutableRawPointer,
-                    _ continuation: @escaping (avdecc_local_entity_aem_command_status_t, T?) -> ()) -> avdecc_local_entity_error_t
+        _ handler: (
+            _ handle: UnsafeMutableRawPointer,
+            _ continuation: @escaping (avdecc_local_entity_aem_command_status_t, T?) -> ()
+        ) -> avdecc_local_entity_error_t
     ) async throws -> T {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<T, Error>) in
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
+            T,
+            Error
+        >) in
             guard let self else {
                 continuation.resume(throwing: LocalEntityError.internalError)
                 return
@@ -225,7 +230,10 @@ public final class LocalEntity {
                 handle,
                 entityID
             ) { _, _, status, descriptor in
-                continuation(status, descriptor != nil ? EntityModelEntityDescriptor(descriptor!.pointee) : nil)
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelEntityDescriptor(descriptor!.pointee) : nil
+                )
             }
         }
     }
@@ -240,7 +248,11 @@ public final class LocalEntity {
                 entityID,
                 configurationIndex
             ) { _, _, status, _, descriptor in
-                continuation(status, descriptor != nil ? EntityModelConfigurationDescriptor(descriptor!.pointee) : nil)
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelConfigurationDescriptor(descriptor!.pointee) :
+                        nil
+                )
             }
         }
     }
@@ -257,7 +269,10 @@ public final class LocalEntity {
                 configurationIndex,
                 audioUnitIndex
             ) { _, _, status, _, _, descriptor in
-                continuation(status, descriptor != nil ? EntityModelAudioUnitDescriptor(descriptor!.pointee) : nil)
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelAudioUnitDescriptor(descriptor!.pointee) : nil
+                )
             }
         }
     }

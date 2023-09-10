@@ -244,10 +244,15 @@ public final class ProtocolInterface {
     }
 
     private func invokeHandler<T>(
-        _ handler: (_ handle: UnsafeMutableRawPointer,
-                    _ continuation: @escaping (T?) -> ()) -> avdecc_protocol_interface_error_t
+        _ handler: (
+            _ handle: UnsafeMutableRawPointer,
+            _ continuation: @escaping (T?) -> ()
+        ) -> avdecc_protocol_interface_error_t
     ) async throws -> T {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<T, Error>) in
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
+            T,
+            Error
+        >) in
             guard let self else {
                 continuation.resume(throwing: ProtocolInterfaceError.internalError)
                 return
@@ -272,7 +277,10 @@ public final class ProtocolInterface {
     {
         try await invokeHandler { handle, continuation in
             var pdu = pdu
-            return LA_AVDECC_ProtocolInterface_sendAemAecpCommand_block(handle, &pdu) { response, err in
+            return LA_AVDECC_ProtocolInterface_sendAemAecpCommand_block(
+                handle,
+                &pdu
+            ) { response, _ in
                 continuation(response?.pointee)
             }
         }
@@ -290,7 +298,10 @@ public final class ProtocolInterface {
     {
         try await invokeHandler { handle, continuation in
             var pdu = pdu
-            return LA_AVDECC_ProtocolInterface_sendMvuAecpCommand_block(handle, &pdu) { response, err in
+            return LA_AVDECC_ProtocolInterface_sendMvuAecpCommand_block(
+                handle,
+                &pdu
+            ) { response, _ in
                 continuation(response?.pointee)
             }
         }
@@ -308,7 +319,7 @@ public final class ProtocolInterface {
     {
         try await invokeHandler { handle, continuation in
             var pdu = pdu
-            return LA_AVDECC_ProtocolInterface_sendAcmpCommand_block(handle, &pdu) { response, err in
+            return LA_AVDECC_ProtocolInterface_sendAcmpCommand_block(handle, &pdu) { response, _ in
                 continuation(response?.pointee)
             }
         }
