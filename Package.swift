@@ -54,11 +54,11 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "AVDECCTest",
+            name: "Discovery",
             dependencies: [
                 "AVDECCSwift",
             ],
-            path: "Examples/AVDECCTest"
+            path: "Examples/Discovery"
         ),
         .binaryTarget(
             name: "avdecc",

@@ -111,7 +111,7 @@ public final class ProtocolInterface {
     }
 
     public init(
-        type: avdecc_protocol_interface_type_e,
+        type: avdecc_protocol_interface_type_e = avdecc_protocol_interface_type_pcap,
         interfaceID: String,
         executorName: String = DefaultExecutorName
     ) throws {
@@ -367,7 +367,7 @@ private func ProtocolInterface_onLocalEntityOnline(
     _ entity: avdecc_entity_cp?
 ) {
     ProtocolInterface.withObserver(handle) {
-        $0.observer?.onLocalEntityOnline($0, entity!.pointee)
+        $0.observer?.onLocalEntityOnline($0, Entity(entity!))
     }
 }
 
@@ -385,7 +385,7 @@ private func ProtocolInterface_onLocalEntityUpdated(
     _ entity: avdecc_entity_cp?
 ) {
     ProtocolInterface.withObserver(handle) {
-        $0.observer?.onLocalEntityUpdated($0, entity!.pointee)
+        $0.observer?.onLocalEntityUpdated($0, Entity(entity!))
     }
 }
 
@@ -394,7 +394,7 @@ private func ProtocolInterface_onRemoteEntityOnline(
     _ entity: avdecc_entity_cp?
 ) {
     ProtocolInterface.withObserver(handle) {
-        $0.observer?.onRemoteEntityOnline($0, entity!.pointee)
+        $0.observer?.onRemoteEntityOnline($0, Entity(entity!))
     }
 }
 
@@ -412,6 +412,6 @@ private func ProtocolInterface_onRemoteEntityUpdated(
     _ entity: avdecc_entity_cp?
 ) {
     ProtocolInterface.withObserver(handle) {
-        $0.observer?.onRemoteEntityUpdated($0, entity!.pointee)
+        $0.observer?.onRemoteEntityUpdated($0, Entity(entity!))
     }
 }

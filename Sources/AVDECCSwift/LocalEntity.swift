@@ -93,7 +93,7 @@ public final class LocalEntity {
     }
 
     init(_ protocolInterfaceHandle: UnsafeMutableRawPointer, entity: Entity) throws {
-        var entity = entity
+        var entity = entity.bridgeToAvdeccType()
         var thunk = LocalEntity.DelegateThunk
 
         try withLocalEntityError {
@@ -149,8 +149,8 @@ public final class LocalEntity {
     public func acquireEntity(
         id entityID: UniqueIdentifier,
         isPersistent: Bool,
-        descriptorType: avdecc_entity_model_descriptor_type_t,
-        descriptorIndex: avdecc_entity_model_descriptor_index_t
+        descriptorType: EntityModelDescriptorType,
+        descriptorIndex: EntityModelDescriptorIndex
     ) async throws -> UniqueIdentifier {
         try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
             UniqueIdentifier,
@@ -183,8 +183,8 @@ public final class LocalEntity {
 
     public func releaseEntity(
         id entityID: UniqueIdentifier,
-        descriptorType: avdecc_entity_model_descriptor_type_t,
-        descriptorIndex: avdecc_entity_model_descriptor_index_t
+        descriptorType: EntityModelDescriptorType,
+        descriptorIndex: EntityModelDescriptorIndex
     ) async throws -> UniqueIdentifier {
         try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
             UniqueIdentifier,
@@ -220,8 +220,67 @@ public final class LocalEntity {
     // LA_AVDECC_LocalEntity_queryControllerAvailable
     // LA_AVDECC_LocalEntity_registerUnsolicitedNotifications
     // LA_AVDECC_LocalEntity_unregisterUnsolicitedNotifications
-    // LA_AVDECC_LocalEntity_readEntityDescriptor
-    // LA_AVDECC_LocalEntity_readConfigurationDescriptor
+
+    public func readEntityDescriptor(
+        id entityID: UniqueIdentifier
+    ) async throws -> EntityDescriptor {
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
+            EntityDescriptor,
+            Error
+        >) in
+            guard let self else {
+                continuation.resume(throwing: LocalEntityError.internalError)
+                return
+            }
+
+            let err = LA_AVDECC_LocalEntity_readEntityDescriptor_block(
+                self.handle,
+                entityID
+            ) { _, _, status, descriptor in
+                guard status != 0 else {
+                    continuation.resume(throwing: LocalEntityCommandStatus(status))
+                    return
+                }
+                continuation.resume(returning: EntityDescriptor(descriptor: descriptor!.pointee))
+            }
+            guard err != 0 else {
+                continuation.resume(throwing: LocalEntityError(err))
+                return
+            }
+        }
+    }
+
+    public func readConfigurationDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelConfigurationDescriptor {
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
+            EntityModelConfigurationDescriptor,
+            Error
+        >) in
+            guard let self else {
+                continuation.resume(throwing: LocalEntityError.internalError)
+                return
+            }
+
+            let err = LA_AVDECC_LocalEntity_readConfigurationDescriptor_block(
+                self.handle,
+                entityID,
+                configurationIndex
+            ) { _, _, status, _, descriptor in
+                guard status != 0 else {
+                    continuation.resume(throwing: LocalEntityCommandStatus(status))
+                    return
+                }
+                continuation.resume(returning: EntityModelConfigurationDescriptor(descriptor!.pointee))
+            }
+            guard err != 0 else {
+                continuation.resume(throwing: LocalEntityError(err))
+                return
+            }
+        }
+    }
+
     // LA_AVDECC_LocalEntity_readAudioUnitDescriptor
     // LA_AVDECC_LocalEntity_readStreamInputDescriptor
     // LA_AVDECC_LocalEntity_readStreamOutputDescriptor
@@ -318,7 +377,7 @@ private func LocalEntity_onEntityOnline(
     _ entity: avdecc_entity_cp?
 ) {
     LocalEntity.withDelegate(handle) {
-        $0.delegate?.onEntityOnline($0, id: entityID, entity: entity!.pointee)
+        $0.delegate?.onEntityOnline($0, id: entityID, entity: Entity(entity!))
     }
 }
 
@@ -328,7 +387,7 @@ private func LocalEntity_onEntityUpdate(
     _ entity: avdecc_entity_cp?
 ) {
     LocalEntity.withDelegate(handle) {
-        $0.delegate?.onEntityUpdate($0, id: entityID, entity: entity!.pointee)
+        $0.delegate?.onEntityUpdate($0, id: entityID, entity: Entity(entity!))
     }
 }
 
