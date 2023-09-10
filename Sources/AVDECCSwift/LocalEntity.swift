@@ -30,7 +30,7 @@ public enum LocalEntityError: UInt8, Error {
     }
 }
 
-public enum LocalEntityCommandStatus: UInt16, Error {
+public enum LocalEntityAemCommandStatus: UInt16, Error {
     case notImplemented = 1
     case noSuchDescriptor = 2
     case lockedByOther = 3
@@ -146,6 +146,34 @@ public final class LocalEntity {
         }
     }
 
+    private func invokeHandler<T>(
+        _ handler: (_ handle: UnsafeMutableRawPointer,
+                    _ continuation: (T?, avdecc_local_entity_aem_command_status_t) -> ()) -> avdecc_local_entity_error_t
+    ) async throws -> T {
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<T, Error>) in
+            guard let self else {
+                continuation.resume(throwing: LocalEntityError.internalError)
+                return
+            }
+
+            let err = handler(self.handle) { value, status in
+                guard status != 0 else {
+                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
+                    return
+                }
+                guard let value else {
+                    continuation.resume(throwing: LocalEntityError.internalError)
+                    return
+                }
+                continuation.resume(returning: value)
+            }
+            guard err != 0 else {
+                continuation.resume(throwing: LocalEntityError(err))
+                return
+            }
+        }
+    }
+
     public func acquireEntity(
         id entityID: UniqueIdentifier,
         isPersistent: Bool,
@@ -169,7 +197,7 @@ public final class LocalEntity {
                 descriptorIndex
             ) { _, _, status, owningEntity, _, _ in
                 guard status != 0 else {
-                    continuation.resume(throwing: LocalEntityCommandStatus(status))
+                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
                     return
                 }
                 continuation.resume(returning: owningEntity)
@@ -202,7 +230,7 @@ public final class LocalEntity {
                 descriptorIndex
             ) { _, _, status, owningEntity, _, _ in
                 guard status != 0 else {
-                    continuation.resume(throwing: LocalEntityCommandStatus(status))
+                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
                     return
                 }
                 continuation.resume(returning: owningEntity)
@@ -238,7 +266,7 @@ public final class LocalEntity {
                 entityID
             ) { _, _, status, descriptor in
                 guard status != 0 else {
-                    continuation.resume(throwing: LocalEntityCommandStatus(status))
+                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
                     return
                 }
                 continuation.resume(returning: EntityModelEntityDescriptor(descriptor!.pointee))
@@ -269,7 +297,7 @@ public final class LocalEntity {
                 configurationIndex
             ) { _, _, status, _, descriptor in
                 guard status != 0 else {
-                    continuation.resume(throwing: LocalEntityCommandStatus(status))
+                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
                     return
                 }
                 continuation
@@ -281,8 +309,40 @@ public final class LocalEntity {
             }
         }
     }
+    public func readAudioUnitDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        audioUnitIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelAudioUnitDescriptor {
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
+            EntityModelAudioUnitDescriptor,
+            Error
+        >) in
+            guard let self else {
+                continuation.resume(throwing: LocalEntityError.internalError)
+                return
+            }
 
-    // LA_AVDECC_LocalEntity_readAudioUnitDescriptor
+            let err = LA_AVDECC_LocalEntity_readAudioUnitDescriptor_block(
+                self.handle,
+                entityID,
+                configurationIndex,
+                audioUnitIndex
+            ) { _, _, status, _, _, descriptor in
+                guard status != 0 else {
+                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
+                    return
+                }
+                continuation
+                    .resume(returning: EntityModelAudioUnitDescriptor(descriptor!.pointee))
+            }
+            guard err != 0 else {
+                continuation.resume(throwing: LocalEntityError(err))
+                return
+            }
+        }
+    }
+
     // LA_AVDECC_LocalEntity_readStreamInputDescriptor
     // LA_AVDECC_LocalEntity_readStreamOutputDescriptor
     // LA_AVDECC_LocalEntity_readJackInputDescriptor
@@ -350,7 +410,6 @@ public final class LocalEntity {
     // LA_AVDECC_LocalEntity_startStreamOutput
     // LA_AVDECC_LocalEntity_stopStreamInput
     // LA_AVDECC_LocalEntity_stopStreamOutput
-    // LA_AVDECC_LocalEntity_getAvbInfo
 
     public func getAvbInfo(
         id entityID: UniqueIdentifier,
@@ -371,7 +430,7 @@ public final class LocalEntity {
                 avbInterfaceIndex
             ) { _, _, status, _, info in
                 guard status != 0 else {
-                    continuation.resume(throwing: LocalEntityCommandStatus(status))
+                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
                     return
                 }
                 continuation
@@ -408,7 +467,7 @@ public final class LocalEntity {
                 entityID
             ) { _, _, status, info in
                 guard status != 0 else {
-                    continuation.resume(throwing: LocalEntityCommandStatus(status))
+                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
                     return
                 }
                 continuation

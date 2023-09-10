@@ -134,6 +134,57 @@ public struct EntityModelConfigurationDescriptor: Sendable {
     }
 }
 
+public typealias EntityModelSamplingRate = avdecc_entity_model_sampling_rate_t
+
+public struct EntityModelAudioUnitDescriptor: Sendable {
+    private let descriptor: avdecc_entity_model_audio_unit_descriptor_t
+
+    public let samplingRates: [EntityModelSamplingRate]
+
+    init(_ descriptor: avdecc_entity_model_audio_unit_descriptor_t) {
+        self.samplingRates = nullTerminatedArrayToSwiftArray(descriptor.sampling_rates)
+    
+        var descriptor = descriptor
+        descriptor.sampling_rates = nil
+        self.descriptor = descriptor
+    }
+
+    public var objectName: String { String(avdeccFixedString: descriptor.object_name) }
+    public var localizedDescription: avdecc_entity_model_localized_string_reference_t { descriptor.localized_description }
+    public var clockDomainIndex: EntityModelDescriptorIndex { descriptor.clock_domain_index }
+
+    public var numberOfStreamInputPorts: UInt16 { descriptor.number_of_stream_input_ports }
+    public var baseStreamInputPort: EntityModelDescriptorIndex { descriptor.base_stream_input_port }
+
+    public var numberOfStreamOutputPorts: UInt16 { descriptor.number_of_stream_output_ports }
+    public var baseStreamOutputPort: EntityModelDescriptorIndex { descriptor.base_stream_output_port }
+
+    public var numberOfExternalInputPorts: UInt16 { descriptor.number_of_external_input_ports }
+    public var baseExternalInputPort: EntityModelDescriptorIndex { descriptor.base_external_input_port }
+
+    public var numberOfExternalOutputPorts: UInt16 { descriptor.number_of_external_output_ports }
+    public var baseExternalOutputPort: EntityModelDescriptorIndex { descriptor.base_external_output_port }
+
+    public var numberOfInternalInputPorts: UInt16 { descriptor.number_of_internal_input_ports }
+    public var baseInternalInputPort: EntityModelDescriptorIndex { descriptor.base_internal_input_port }
+
+    public var numberOfInternalOutputPorts: UInt16 { descriptor.number_of_external_output_ports }
+    public var baseInternalOutputPort: EntityModelDescriptorIndex { descriptor.base_internal_output_port }
+
+    public var numberOfControls: UInt16 { descriptor.number_of_controls }
+    public var baseControl: EntityModelDescriptorIndex { descriptor.base_control }
+
+    public var numberOfSignalSelectors: UInt16 { descriptor.number_of_signal_selectors }
+    public var baseSignalSelector: EntityModelDescriptorIndex { descriptor.base_signal_selector }
+
+    public var numberOfMixers: UInt16 { descriptor.number_of_mixers }
+    public var baseMixer: EntityModelDescriptorIndex { descriptor.base_mixer }
+
+    public var currentSamplingRate: EntityModelSamplingRate { descriptor.current_sampling_rate }
+}
+
+public typealias EntityModelClockSourceDescriptor = avdecc_entity_model_clock_source_descriptor_t
+
 public typealias EntityModelMsrpMapping = avdecc_entity_model_msrp_mapping_t
 
 public struct EntityModelAvbInfo: Sendable {
