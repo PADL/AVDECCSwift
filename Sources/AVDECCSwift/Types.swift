@@ -134,6 +134,40 @@ public struct EntityModelConfigurationDescriptor: Sendable {
     }
 }
 
+public typealias EntityModelMsrpMapping = avdecc_entity_model_msrp_mapping_t
+
+public struct EntityModelAvbInfo: Sendable {
+    private let info: avdecc_entity_model_avb_info_t
+
+    public let mappings: [EntityModelMsrpMapping]
+
+    init(_ info: avdecc_entity_model_avb_info_t) {
+        self.mappings = nullTerminatedArrayToSwiftArray(info.mappings)
+    
+        var info = info
+        info.mappings = nil
+        self.info = info
+    }
+
+    public var gptpGrandmasterID: UniqueIdentifier {
+        info.gptp_grandmaster_id
+    }
+
+    public var propagationDelay: UInt {
+        UInt(info.propagation_delay)
+    }
+
+    public var gptpDomainNumber: UInt8 {
+        info.gptp_domain_number
+    }
+
+    public var flags: avdecc_entity_avb_info_flags_t {
+        info.flags
+    }
+}
+
+public typealias EntityModelMilanInfo = avdecc_entity_model_milan_info_t
+
 public struct Entity: AVDECCBridgeable {
     typealias AVDECCType = avdecc_entity_t
 

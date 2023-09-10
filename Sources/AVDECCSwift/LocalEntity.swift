@@ -351,13 +351,76 @@ public final class LocalEntity {
     // LA_AVDECC_LocalEntity_stopStreamInput
     // LA_AVDECC_LocalEntity_stopStreamOutput
     // LA_AVDECC_LocalEntity_getAvbInfo
+
+    public func getAvbInfo(
+        id entityID: UniqueIdentifier,
+        avbInterfaceIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelAvbInfo {
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
+            EntityModelAvbInfo,
+            Error
+        >) in
+            guard let self else {
+                continuation.resume(throwing: LocalEntityError.internalError)
+                return
+            }
+
+            let err = LA_AVDECC_LocalEntity_getAvbInfo_block(
+                self.handle,
+                entityID,
+                avbInterfaceIndex
+            ) { _, _, status, _, info in
+                guard status != 0 else {
+                    continuation.resume(throwing: LocalEntityCommandStatus(status))
+                    return
+                }
+                continuation
+                    .resume(returning: EntityModelAvbInfo(info!.pointee))
+            }
+            guard err != 0 else {
+                continuation.resume(throwing: LocalEntityError(err))
+                return
+            }
+        }
+    }
+
     // LA_AVDECC_LocalEntity_getAsPath
     // LA_AVDECC_LocalEntity_getEntityCounters
     // LA_AVDECC_LocalEntity_getAvbInterfaceCounters
     // LA_AVDECC_LocalEntity_getClockDomainCounters
     // LA_AVDECC_LocalEntity_getStreamInputCounters
     // LA_AVDECC_LocalEntity_getStreamOutputCounters
-    // LA_AVDECC_LocalEntity_getMilanInfo
+
+    public func getMilanInfo(
+        id entityID: UniqueIdentifier
+    ) async throws -> EntityModelMilanInfo {
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
+            EntityModelMilanInfo,
+            Error
+        >) in
+            guard let self else {
+                continuation.resume(throwing: LocalEntityError.internalError)
+                return
+            }
+
+            let err = LA_AVDECC_LocalEntity_getMilanInfo_block(
+                self.handle,
+                entityID
+            ) { _, _, status, info in
+                guard status != 0 else {
+                    continuation.resume(throwing: LocalEntityCommandStatus(status))
+                    return
+                }
+                continuation
+                    .resume(returning: info!.pointee)
+            }
+            guard err != 0 else {
+                continuation.resume(throwing: LocalEntityError(err))
+                return
+            }
+        }
+    }
+
     // LA_AVDECC_LocalEntity_connectStream
     // LA_AVDECC_LocalEntity_disconnectStream
     // LA_AVDECC_LocalEntity_disconnectTalkerStream
