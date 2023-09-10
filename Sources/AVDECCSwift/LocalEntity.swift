@@ -148,7 +148,7 @@ public final class LocalEntity {
 
     private func invokeHandler<T>(
         _ handler: (_ handle: UnsafeMutableRawPointer,
-                    _ continuation: (T?, avdecc_local_entity_aem_command_status_t) -> ()) -> avdecc_local_entity_error_t
+                    _ continuation: @escaping (avdecc_local_entity_aem_command_status_t, T?) -> ()) -> avdecc_local_entity_error_t
     ) async throws -> T {
         try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<T, Error>) in
             guard let self else {
@@ -156,7 +156,7 @@ public final class LocalEntity {
                 return
             }
 
-            let err = handler(self.handle) { value, status in
+            let err = handler(self.handle) { status, value in
                 guard status != 0 else {
                     continuation.resume(throwing: LocalEntityAemCommandStatus(status))
                     return
@@ -180,31 +180,15 @@ public final class LocalEntity {
         descriptorType: EntityModelDescriptorType,
         descriptorIndex: EntityModelDescriptorIndex
     ) async throws -> UniqueIdentifier {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            UniqueIdentifier,
-            Error
-        >) in
-            guard let self else {
-                continuation.resume(throwing: LocalEntityError.internalError)
-                return
-            }
-
-            let err = LA_AVDECC_LocalEntity_acquireEntity_block(
-                self.handle,
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_acquireEntity_block(
+                handle,
                 entityID,
                 isPersistent ? 1 : 0,
                 descriptorType,
                 descriptorIndex
             ) { _, _, status, owningEntity, _, _ in
-                guard status != 0 else {
-                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
-                    return
-                }
-                continuation.resume(returning: owningEntity)
-            }
-            guard err != 0 else {
-                continuation.resume(throwing: LocalEntityError(err))
-                return
+                continuation(status, owningEntity)
             }
         }
     }
@@ -214,30 +198,14 @@ public final class LocalEntity {
         descriptorType: EntityModelDescriptorType,
         descriptorIndex: EntityModelDescriptorIndex
     ) async throws -> UniqueIdentifier {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            UniqueIdentifier,
-            Error
-        >) in
-            guard let self else {
-                continuation.resume(throwing: LocalEntityError.internalError)
-                return
-            }
-
-            let err = LA_AVDECC_LocalEntity_releaseEntity_block(
-                self.handle,
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_releaseEntity_block(
+                handle,
                 entityID,
                 descriptorType,
                 descriptorIndex
             ) { _, _, status, owningEntity, _, _ in
-                guard status != 0 else {
-                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
-                    return
-                }
-                continuation.resume(returning: owningEntity)
-            }
-            guard err != 0 else {
-                continuation.resume(throwing: LocalEntityError(err))
-                return
+                continuation(status, owningEntity)
             }
         }
     }
@@ -252,28 +220,12 @@ public final class LocalEntity {
     public func readEntityDescriptor(
         id entityID: UniqueIdentifier
     ) async throws -> EntityModelEntityDescriptor {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            EntityModelEntityDescriptor,
-            Error
-        >) in
-            guard let self else {
-                continuation.resume(throwing: LocalEntityError.internalError)
-                return
-            }
-
-            let err = LA_AVDECC_LocalEntity_readEntityDescriptor_block(
-                self.handle,
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readEntityDescriptor_block(
+                handle,
                 entityID
             ) { _, _, status, descriptor in
-                guard status != 0 else {
-                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
-                    return
-                }
-                continuation.resume(returning: EntityModelEntityDescriptor(descriptor!.pointee))
-            }
-            guard err != 0 else {
-                continuation.resume(throwing: LocalEntityError(err))
-                return
+                continuation(status, descriptor != nil ? EntityModelEntityDescriptor(descriptor!.pointee) : nil)
             }
         }
     }
@@ -282,63 +234,30 @@ public final class LocalEntity {
         id entityID: UniqueIdentifier,
         configurationIndex: EntityModelDescriptorType
     ) async throws -> EntityModelConfigurationDescriptor {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            EntityModelConfigurationDescriptor,
-            Error
-        >) in
-            guard let self else {
-                continuation.resume(throwing: LocalEntityError.internalError)
-                return
-            }
-
-            let err = LA_AVDECC_LocalEntity_readConfigurationDescriptor_block(
-                self.handle,
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readConfigurationDescriptor_block(
+                handle,
                 entityID,
                 configurationIndex
             ) { _, _, status, _, descriptor in
-                guard status != 0 else {
-                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
-                    return
-                }
-                continuation
-                    .resume(returning: EntityModelConfigurationDescriptor(descriptor!.pointee))
-            }
-            guard err != 0 else {
-                continuation.resume(throwing: LocalEntityError(err))
-                return
+                continuation(status, descriptor != nil ? EntityModelConfigurationDescriptor(descriptor!.pointee) : nil)
             }
         }
     }
+
     public func readAudioUnitDescriptor(
         id entityID: UniqueIdentifier,
         configurationIndex: EntityModelDescriptorType,
         audioUnitIndex: EntityModelDescriptorType
     ) async throws -> EntityModelAudioUnitDescriptor {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            EntityModelAudioUnitDescriptor,
-            Error
-        >) in
-            guard let self else {
-                continuation.resume(throwing: LocalEntityError.internalError)
-                return
-            }
-
-            let err = LA_AVDECC_LocalEntity_readAudioUnitDescriptor_block(
-                self.handle,
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readAudioUnitDescriptor_block(
+                handle,
                 entityID,
                 configurationIndex,
                 audioUnitIndex
             ) { _, _, status, _, _, descriptor in
-                guard status != 0 else {
-                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
-                    return
-                }
-                continuation
-                    .resume(returning: EntityModelAudioUnitDescriptor(descriptor!.pointee))
-            }
-            guard err != 0 else {
-                continuation.resume(throwing: LocalEntityError(err))
-                return
+                continuation(status, descriptor != nil ? EntityModelAudioUnitDescriptor(descriptor!.pointee) : nil)
             }
         }
     }
@@ -415,30 +334,13 @@ public final class LocalEntity {
         id entityID: UniqueIdentifier,
         avbInterfaceIndex: EntityModelDescriptorType
     ) async throws -> EntityModelAvbInfo {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            EntityModelAvbInfo,
-            Error
-        >) in
-            guard let self else {
-                continuation.resume(throwing: LocalEntityError.internalError)
-                return
-            }
-
-            let err = LA_AVDECC_LocalEntity_getAvbInfo_block(
-                self.handle,
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getAvbInfo_block(
+                handle,
                 entityID,
                 avbInterfaceIndex
             ) { _, _, status, _, info in
-                guard status != 0 else {
-                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
-                    return
-                }
-                continuation
-                    .resume(returning: EntityModelAvbInfo(info!.pointee))
-            }
-            guard err != 0 else {
-                continuation.resume(throwing: LocalEntityError(err))
-                return
+                continuation(status, info != nil ? EntityModelAvbInfo(info!.pointee) : nil)
             }
         }
     }
@@ -453,29 +355,12 @@ public final class LocalEntity {
     public func getMilanInfo(
         id entityID: UniqueIdentifier
     ) async throws -> EntityModelMilanInfo {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            EntityModelMilanInfo,
-            Error
-        >) in
-            guard let self else {
-                continuation.resume(throwing: LocalEntityError.internalError)
-                return
-            }
-
-            let err = LA_AVDECC_LocalEntity_getMilanInfo_block(
-                self.handle,
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getMilanInfo_block(
+                handle,
                 entityID
             ) { _, _, status, info in
-                guard status != 0 else {
-                    continuation.resume(throwing: LocalEntityAemCommandStatus(status))
-                    return
-                }
-                continuation
-                    .resume(returning: info!.pointee)
-            }
-            guard err != 0 else {
-                continuation.resume(throwing: LocalEntityError(err))
-                return
+                continuation(status, info?.pointee)
             }
         }
     }

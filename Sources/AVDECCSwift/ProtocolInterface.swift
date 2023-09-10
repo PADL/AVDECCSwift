@@ -243,27 +243,37 @@ public final class ProtocolInterface {
         }
     }
 
+    private func invokeHandler<T>(
+        _ handler: (_ handle: UnsafeMutableRawPointer,
+                    _ continuation: @escaping (T?) -> ()) -> avdecc_protocol_interface_error_t
+    ) async throws -> T {
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<T, Error>) in
+            guard let self else {
+                continuation.resume(throwing: ProtocolInterfaceError.internalError)
+                return
+            }
+
+            let err = handler(self.handle) { value in
+                guard let value else {
+                    continuation.resume(throwing: ProtocolInterfaceError.internalError)
+                    return
+                }
+                continuation.resume(returning: value)
+            }
+            guard err != 0 else {
+                continuation.resume(throwing: ProtocolInterfaceError(err))
+                return
+            }
+        }
+    }
+
     public func sendAemAecpCommand(_ pdu: avdecc_protocol_aem_aecpdu_t) async throws
         -> avdecc_protocol_aem_aecpdu_t
     {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            avdecc_protocol_aem_aecpdu_t,
-            Error
-        >) in
+        try await invokeHandler { handle, continuation in
             var pdu = pdu
-            let err = LA_AVDECC_ProtocolInterface_sendAemAecpCommand_block(
-                self?.handle,
-                &pdu
-            ) { response, err in
-                guard err != 0 else {
-                    continuation.resume(throwing: err)
-                    return
-                }
-                continuation.resume(returning: response!.pointee)
-            }
-            guard err != 0 else {
-                continuation.resume(throwing: err)
-                return
+            return LA_AVDECC_ProtocolInterface_sendAemAecpCommand_block(handle, &pdu) { response, err in
+                continuation(response?.pointee)
             }
         }
     }
@@ -278,24 +288,10 @@ public final class ProtocolInterface {
     public func sendMvuAecpCommand(_ pdu: avdecc_protocol_mvu_aecpdu_t) async throws
         -> avdecc_protocol_mvu_aecpdu_t
     {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            avdecc_protocol_mvu_aecpdu_t,
-            Error
-        >) in
+        try await invokeHandler { handle, continuation in
             var pdu = pdu
-            let err = LA_AVDECC_ProtocolInterface_sendMvuAecpCommand_block(
-                self?.handle,
-                &pdu
-            ) { response, err in
-                guard err != 0 else {
-                    continuation.resume(throwing: err)
-                    return
-                }
-                continuation.resume(returning: response!.pointee)
-            }
-            guard err != 0 else {
-                continuation.resume(throwing: err)
-                return
+            return LA_AVDECC_ProtocolInterface_sendMvuAecpCommand_block(handle, &pdu) { response, err in
+                continuation(response?.pointee)
             }
         }
     }
@@ -310,24 +306,10 @@ public final class ProtocolInterface {
     public func sendAcmpCommand(_ pdu: avdecc_protocol_acmpdu_t) async throws
         -> avdecc_protocol_acmpdu_t
     {
-        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            avdecc_protocol_acmpdu_t,
-            Error
-        >) in
+        try await invokeHandler { handle, continuation in
             var pdu = pdu
-            let err = LA_AVDECC_ProtocolInterface_sendAcmpCommand_block(
-                self?.handle,
-                &pdu
-            ) { response, err in
-                guard err != 0 else {
-                    continuation.resume(throwing: err)
-                    return
-                }
-                continuation.resume(returning: response!.pointee)
-            }
-            guard err != 0 else {
-                continuation.resume(throwing: err)
-                return
+            return LA_AVDECC_ProtocolInterface_sendAcmpCommand_block(handle, &pdu) { response, err in
+                continuation(response?.pointee)
             }
         }
     }
