@@ -42,9 +42,9 @@ public final class Discovery: ProtocolInterfaceObserver {
     let pi: ProtocolInterface
 
     init(interfaceID: String) throws {
-        self.pi = try ProtocolInterface(interfaceID: interfaceID)
-        self.pi.observer = self
-        try self.pi.discoverRemoteEntities()
+        pi = try ProtocolInterface(interfaceID: interfaceID)
+        pi.observer = self
+        try pi.discoverRemoteEntities()
     }
 
     public func onTransportError(_: ProtocolInterface) {

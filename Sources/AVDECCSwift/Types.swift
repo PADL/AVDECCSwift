@@ -34,7 +34,7 @@ func nullTerminatedArrayToSwiftArray<T>(
             ptr += 1
         }
     }
-        
+
     return array
 }
 
@@ -57,17 +57,35 @@ public struct EntityDescriptor: Sendable {
 
     public var entityID: UniqueIdentifier { descriptor.entity_id }
     public var entityModelID: UniqueIdentifier { descriptor.entity_model_id }
-    public var entityCapabilities: avdecc_entity_entity_capabilities_t { descriptor.entity_capabilities }
+    public var entityCapabilities: avdecc_entity_entity_capabilities_t {
+        descriptor.entity_capabilities
+    }
+
     public var talkerStreamSources: UInt16 { descriptor.talker_stream_sources }
-    public var talkerCapabilities: avdecc_entity_talker_capabilities_t { descriptor.talker_capabilities }
+    public var talkerCapabilities: avdecc_entity_talker_capabilities_t {
+        descriptor.talker_capabilities
+    }
+
     public var listenerStreamSinks: UInt16 { descriptor.listener_stream_sinks }
-    public var listenerCpabailities: avdecc_entity_listener_capabilities_t { descriptor.listener_capabilities }
-    public var controllerCapabilities: avdecc_entity_controller_capabilities_t { descriptor.controller_capabilities }
+    public var listenerCpabailities: avdecc_entity_listener_capabilities_t {
+        descriptor.listener_capabilities
+    }
+
+    public var controllerCapabilities: avdecc_entity_controller_capabilities_t {
+        descriptor.controller_capabilities
+    }
+
     public var availableIndex: UInt { UInt(descriptor.available_index) }
     public var associationID: UniqueIdentifier { descriptor.association_id }
     public var entityName: String { String(avdeccFixedString: descriptor.entity_name) }
-    public var vendorNameString: avdecc_entity_model_localized_string_reference_t { descriptor.vendor_name_string }
-    public var modelNameString: avdecc_entity_model_localized_string_reference_t { descriptor.model_name_string }
+    public var vendorNameString: avdecc_entity_model_localized_string_reference_t {
+        descriptor.vendor_name_string
+    }
+
+    public var modelNameString: avdecc_entity_model_localized_string_reference_t {
+        descriptor.model_name_string
+    }
+
     public var firmwareVersion: String { String(avdeccFixedString: descriptor.firmware_version) }
     public var groupName: String { String(avdeccFixedString: descriptor.group_name) }
     public var serialNumber: String { String(avdeccFixedString: descriptor.serial_number) }
@@ -83,13 +101,13 @@ public struct EntityModelConfigurationDescriptor: Sendable {
         let count: UInt16
 
         init(_ count: AVDECCType) {
-            self.descriptorType = count.descriptor_type
+            descriptorType = count.descriptor_type
             self.count = count.count
         }
 
         func bridgeToAvdeccType() -> AVDECCType {
             var count = avdecc_entity_model_descriptors_count_t()
-            count.descriptor_type = self.descriptorType
+            count.descriptor_type = descriptorType
             count.count = self.count
             return count
         }
@@ -100,9 +118,9 @@ public struct EntityModelConfigurationDescriptor: Sendable {
     public let counts: [Count]
 
     init(_ descriptor: avdecc_entity_model_configuration_descriptor_t) {
-        self.objectName = String(avdeccFixedString: descriptor.object_name)
-        self.localizedDescription = descriptor.localized_description
-        self.counts = nullTerminatedArrayToSwiftArray(descriptor.counts).map { Count($0) }
+        objectName = String(avdeccFixedString: descriptor.object_name)
+        localizedDescription = descriptor.localized_description
+        counts = nullTerminatedArrayToSwiftArray(descriptor.counts).map { Count($0) }
     }
 }
 
@@ -113,7 +131,7 @@ public struct Entity: Sendable, AVDECCBridgeable {
     public let interfacesInformation: [avdecc_entity_interface_information_t]
 
     init(_ entity: AVDECCType) {
-        self.commonInformation = entity.common_information
+        commonInformation = entity.common_information
         var interfacesInformation = [avdecc_entity_interface_information_t]()
         entity.forEachInterface {
             interfacesInformation.append($0.pointee)

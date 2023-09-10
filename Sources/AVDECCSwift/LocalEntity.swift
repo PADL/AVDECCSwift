@@ -272,7 +272,8 @@ public final class LocalEntity {
                     continuation.resume(throwing: LocalEntityCommandStatus(status))
                     return
                 }
-                continuation.resume(returning: EntityModelConfigurationDescriptor(descriptor!.pointee))
+                continuation
+                    .resume(returning: EntityModelConfigurationDescriptor(descriptor!.pointee))
             }
             guard err != 0 else {
                 continuation.resume(throwing: LocalEntityError(err))
