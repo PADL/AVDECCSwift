@@ -19,6 +19,7 @@
 
 import CAVDECC
 
+public typealias EntityModelLocalizedStringReference = avdecc_entity_model_localized_string_reference_t
 public typealias EntityModelDescriptorType = avdecc_entity_model_descriptor_type_t
 public typealias EntityModelDescriptorIndex = avdecc_entity_model_descriptor_index_t
 public typealias UniqueIdentifier = avdecc_unique_identifier_t
@@ -88,11 +89,11 @@ public struct EntityModelEntityDescriptor: AVDECCBridgeable {
     public var availableIndex: UInt { UInt(descriptor.available_index) }
     public var associationID: UniqueIdentifier { descriptor.association_id }
     public var entityName: String { String(avdeccFixedString: descriptor.entity_name) }
-    public var vendorNameString: avdecc_entity_model_localized_string_reference_t {
+    public var vendorNameString: EntityModelLocalizedStringReference {
         descriptor.vendor_name_string
     }
 
-    public var modelNameString: avdecc_entity_model_localized_string_reference_t {
+    public var modelNameString: EntityModelLocalizedStringReference {
         descriptor.model_name_string
     }
 
@@ -124,7 +125,7 @@ public struct EntityModelConfigurationDescriptor: Sendable {
     }
 
     public let objectName: String
-    public let localizedDescription: avdecc_entity_model_localized_string_reference_t
+    public let localizedDescription: EntityModelLocalizedStringReference
     public let counts: [Count]
 
     init(_ descriptor: avdecc_entity_model_configuration_descriptor_t) {
@@ -150,7 +151,7 @@ public struct EntityModelAudioUnitDescriptor: Sendable {
     }
 
     public var objectName: String { descriptor.objectName }
-    public var localizedDescription: avdecc_entity_model_localized_string_reference_t {
+    public var localizedDescription: EntityModelLocalizedStringReference {
         descriptor.localized_description
     }
 
@@ -215,7 +216,7 @@ public struct EntityModelClockDomainDescriptor: Sendable {
         descriptor.objectName
     }
 
-    public var localizedDescription: avdecc_entity_model_localized_string_reference_t {
+    public var localizedDescription: EntityModelLocalizedStringReference {
         descriptor.localized_description
     }
 
