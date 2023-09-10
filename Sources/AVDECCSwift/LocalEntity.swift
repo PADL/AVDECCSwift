@@ -466,8 +466,39 @@ public final class LocalEntity {
     // LA_AVDECC_LocalEntity_getVideoClusterSamplingRate
     // LA_AVDECC_LocalEntity_setSensorClusterSamplingRate
     // LA_AVDECC_LocalEntity_getSensorClusterSamplingRate
-    // LA_AVDECC_LocalEntity_setClockSource
-    // LA_AVDECC_LocalEntity_getClockSource
+
+    public func setClockSource(
+        id entityID: UniqueIdentifier,
+        clockDomainIndex: EntityModelDescriptorType,
+        clockSourceIndex: EntityModelDescriptorType
+    ) async throws -> () {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_setClockSource_block(
+                handle,
+                entityID,
+                clockDomainIndex,
+                clockSourceIndex
+            ) { _, _, status, _, clockSourceIndex in
+                continuation(status, ())
+            }
+        }
+    }
+
+    public func getClockSource(
+        id entityID: UniqueIdentifier,
+        clockDomainIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelDescriptorType {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getClockSource_block(
+                handle,
+                entityID,
+                clockDomainIndex
+            ) { _, _, status, _, clockSourceIndex in
+                continuation(status, clockSourceIndex)
+            }
+        }
+    }
+
     // LA_AVDECC_LocalEntity_startStreamInput
     // LA_AVDECC_LocalEntity_startStreamOutput
     // LA_AVDECC_LocalEntity_stopStreamInput
