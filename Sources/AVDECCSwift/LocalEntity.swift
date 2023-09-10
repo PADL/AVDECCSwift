@@ -357,8 +357,41 @@ public final class LocalEntity {
     // LA_AVDECC_LocalEntity_readAudioClusterDescriptor
     // LA_AVDECC_LocalEntity_readAudioMapDescriptor
     // LA_AVDECC_LocalEntity_readClockDomainDescriptor
-    // LA_AVDECC_LocalEntity_setConfiguration
-    // LA_AVDECC_LocalEntity_getConfiguration
+
+    public func setConfiguration(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorIndex
+    ) async throws -> () {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_setConfiguration_block(
+                handle,
+                entityID,
+                configurationIndex
+            ) { _, _, status, configurationIndex in
+                continuation(
+                    status,
+                    ()
+                )
+            }
+        }
+    }
+
+    public func getConfiguration(
+        id entityID: UniqueIdentifier
+    ) async throws -> EntityModelDescriptorIndex {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getConfiguration_block(
+                handle,
+                entityID
+            ) { _, _, status, index in
+                continuation(
+                    status,
+                    index
+                )
+            }
+        }
+    }
+
     // LA_AVDECC_LocalEntity_setStreamInputFormat
     // LA_AVDECC_LocalEntity_getStreamInputFormat
     // LA_AVDECC_LocalEntity_setStreamOutputFormat
@@ -373,8 +406,41 @@ public final class LocalEntity {
     // LA_AVDECC_LocalEntity_setStreamOutputInfo
     // LA_AVDECC_LocalEntity_getStreamInputInfo
     // LA_AVDECC_LocalEntity_getStreamOutputInfo
-    // LA_AVDECC_LocalEntity_setEntityName
-    // LA_AVDECC_LocalEntity_getEntityName
+
+    public func setEntityName(
+        id entityID: UniqueIdentifier,
+        to entityName: String
+    ) async throws -> () {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_setEntityName_block(
+                handle,
+                entityID,
+                entityName
+            ) { _, _, status, _ in
+                continuation(
+                    status,
+                    ()
+                )
+            }
+        }
+    }
+
+    public func getEntityName(
+        id entityID: UniqueIdentifier
+    ) async throws -> String {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getEntityName_block(
+                handle,
+                entityID
+            ) { _, _, status, entityName in
+                continuation(
+                    status,
+                    entityName != nil ? String(cString: entityName!) : nil
+                )
+            }
+        }
+    }
+
     // LA_AVDECC_LocalEntity_setEntityGroupName
     // LA_AVDECC_LocalEntity_getEntityGroupName
     // LA_AVDECC_LocalEntity_setConfigurationName
