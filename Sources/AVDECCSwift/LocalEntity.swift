@@ -25,8 +25,32 @@ public enum LocalEntityError: UInt8, Error {
     case invalidEntityHandle = 98
     case internalError = 99
 
-    init(_ value: avdecc_local_entity_error_t) {
-        self = Self(rawValue: value) ?? .internalError
+    init(_ error: avdecc_local_entity_error_t) {
+        self = Self(rawValue: error) ?? .internalError
+    }
+}
+
+public enum LocalEntityCommandStatus: UInt16, Error {
+    case notImplemented = 1
+    case noSuchDescriptor = 2
+    case lockedByOther = 3
+    case acquiredByOther = 4
+    case notAuthenticated = 5
+    case authenticationDisabled = 6
+    case badArguments = 7
+    case onResources = 8
+    case inProgress = 9
+    case entityMisbehaving = 10
+    case notSupported = 11
+    case streamIsRunning = 12
+    case networkError = 995
+    case protocolError = 996
+    case timedOut = 997
+    case unknownEntity = 998
+    case internalError = 999
+
+    init(_ status: avdecc_local_entity_aem_command_status_t) {
+        self = Self(rawValue: status) ?? .internalError
     }
 }
 
@@ -127,11 +151,8 @@ public final class LocalEntity {
         isPersistent: Bool,
         descriptorType: avdecc_entity_model_descriptor_type_t,
         descriptorIndex: avdecc_entity_model_descriptor_index_t
-    ) async throws -> (avdecc_local_entity_aem_command_status_t, UniqueIdentifier) {
-        return try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            (avdecc_local_entity_aem_command_status_t, UniqueIdentifier),
-            Error
-        >) in
+    ) async throws -> UniqueIdentifier {
+        return try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<UniqueIdentifier, Error>) in
             guard let self else {
                 continuation.resume(throwing: LocalEntityError.internalError)
                 return
@@ -144,7 +165,11 @@ public final class LocalEntity {
                 descriptorType,
                 descriptorIndex
             ) { _, _, status, owningEntity, _, _ in
-                continuation.resume(returning: (status, owningEntity))
+                guard status != 0 else {
+                    continuation.resume(throwing: LocalEntityCommandStatus(status))
+                    return
+                }
+                continuation.resume(returning: owningEntity)
             }
             guard err != 0 else {
                 continuation.resume(throwing: LocalEntityError(err))
@@ -153,7 +178,36 @@ public final class LocalEntity {
         }
     }
 
-    // LA_AVDECC_LocalEntity_releaseEntity
+    public func releaseEntity(
+        id entityID: UniqueIdentifier,
+        descriptorType: avdecc_entity_model_descriptor_type_t,
+        descriptorIndex: avdecc_entity_model_descriptor_index_t
+    ) async throws -> UniqueIdentifier {
+        return try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<UniqueIdentifier, Error>) in
+            guard let self else {
+                continuation.resume(throwing: LocalEntityError.internalError)
+                return
+            }
+
+            let err = LA_AVDECC_LocalEntity_releaseEntity_block(
+                self.handle,
+                entityID,
+                descriptorType,
+                descriptorIndex
+            ) { _, _, status, owningEntity, _, _ in
+                guard status != 0 else {
+                    continuation.resume(throwing: LocalEntityCommandStatus(status))
+                    return
+                }
+                continuation.resume(returning: owningEntity)
+            }
+            guard err != 0 else {
+                continuation.resume(throwing: LocalEntityError(err))
+                return
+            }
+        }
+    }
+
     // LA_AVDECC_LocalEntity_lockEntity
     // LA_AVDECC_LocalEntity_unlockEntity
     // LA_AVDECC_LocalEntity_queryEntityAvailable

@@ -58,7 +58,7 @@ echo "Build directory is $BUILDDIR with flags $BUILDFLAGS"
 
 cp ../../../info.json.in info.json
 pushd $BUILDDIR
-make -j13
+make -j9
 popd
 
 zip --symlinks -r ../../../avdecc.artifactbundle.zip info.json include \
