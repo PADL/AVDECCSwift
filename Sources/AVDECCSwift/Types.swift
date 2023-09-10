@@ -55,7 +55,7 @@ extension AVDECCBridgeable {
 public struct EntityModelEntityDescriptor: AVDECCBridgeable {
     typealias AVDECCType = avdecc_entity_model_entity_descriptor_t
 
-    let descriptor: avdecc_entity_model_entity_descriptor_t
+    private let descriptor: AVDECCType
 
     init(_ descriptor: AVDECCType) {
         self.descriptor = descriptor
@@ -107,8 +107,8 @@ public struct EntityModelConfigurationDescriptor: Sendable {
     public struct Count: AVDECCBridgeable {
         typealias AVDECCType = avdecc_entity_model_descriptors_count_t
 
-        let descriptorType: avdecc_entity_model_descriptor_type_t
-        let count: UInt16
+        public let descriptorType: avdecc_entity_model_descriptor_type_t
+        public let count: UInt16
 
         init(_ count: AVDECCType) {
             descriptorType = count.descriptor_type
@@ -157,7 +157,7 @@ public struct Entity: AVDECCBridgeable {
     }
 }
 
-extension avdecc_entity_t {
+private extension avdecc_entity_t {
     func forEachInterface(_ block: (avdecc_entity_interface_information_cp) throws -> ()) rethrows {
         var interfaces_information = interfaces_information
         try withUnsafePointer(to: &interfaces_information) { first in
