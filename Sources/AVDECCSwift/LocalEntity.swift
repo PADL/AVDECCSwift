@@ -152,7 +152,10 @@ public final class LocalEntity {
         descriptorType: avdecc_entity_model_descriptor_type_t,
         descriptorIndex: avdecc_entity_model_descriptor_index_t
     ) async throws -> UniqueIdentifier {
-        return try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<UniqueIdentifier, Error>) in
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
+            UniqueIdentifier,
+            Error
+        >) in
             guard let self else {
                 continuation.resume(throwing: LocalEntityError.internalError)
                 return
@@ -183,7 +186,10 @@ public final class LocalEntity {
         descriptorType: avdecc_entity_model_descriptor_type_t,
         descriptorIndex: avdecc_entity_model_descriptor_index_t
     ) async throws -> UniqueIdentifier {
-        return try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<UniqueIdentifier, Error>) in
+        try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
+            UniqueIdentifier,
+            Error
+        >) in
             guard let self else {
                 continuation.resume(throwing: LocalEntityError.internalError)
                 return
