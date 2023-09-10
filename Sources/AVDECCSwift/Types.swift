@@ -19,7 +19,8 @@
 
 import CAVDECC
 
-public typealias EntityModelLocalizedStringReference = avdecc_entity_model_localized_string_reference_t
+public typealias EntityModelLocalizedStringReference =
+    avdecc_entity_model_localized_string_reference_t
 public typealias EntityModelDescriptorType = avdecc_entity_model_descriptor_type_t
 public typealias EntityModelDescriptorIndex = avdecc_entity_model_descriptor_index_t
 public typealias UniqueIdentifier = avdecc_unique_identifier_t
