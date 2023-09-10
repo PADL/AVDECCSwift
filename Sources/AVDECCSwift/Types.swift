@@ -266,6 +266,10 @@ public struct Entity: AVDECCBridgeable {
     public let commonInformation: avdecc_entity_common_information_t
     public let interfacesInformation: [avdecc_entity_interface_information_t]
 
+    public var entityID: UniqueIdentifier {
+        commonInformation.entity_id
+    }
+
     init(_ entity: AVDECCType) {
         commonInformation = entity.common_information
         var interfacesInformation = [avdecc_entity_interface_information_t]()

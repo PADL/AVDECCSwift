@@ -39,24 +39,30 @@ public final class Discovery: ProtocolInterfaceObserver {
     }
 
     let executor = Executor.shared
-    let pi: ProtocolInterface
+    let protocolInterface: ProtocolInterface
+    var localEntity: LocalEntity?
 
     init(interfaceID: String) throws {
-        pi = try ProtocolInterface(interfaceID: interfaceID)
-        pi.observer = self
-        try pi.discoverRemoteEntities()
+        protocolInterface = try ProtocolInterface(interfaceID: interfaceID)
+        protocolInterface.observer = self
+        try protocolInterface.discoverRemoteEntities()
     }
 
     public func onTransportError(_: ProtocolInterface) {
         debugPrint("transport error")
     }
 
-    public func onLocalEntityOnline(_: ProtocolInterface, _ entity: Entity) {
+    public func onLocalEntityOnline(_ protocolInterface: ProtocolInterface, _ entity: Entity) {
         debugPrint("local entity \(entity) online")
+        localEntity = try? LocalEntity(protocolInterface: protocolInterface, entity: entity)
+        debugPrint("initialized entity \(localEntity!)")
     }
 
     public func onLocalEntityOffline(_: ProtocolInterface, id: UniqueIdentifier) {
         debugPrint("local entity \(id) offline")
+        if id == localEntity?.entity.entityID {
+            localEntity = nil
+        }
     }
 
     public func onLocalEntityUpdated(_: ProtocolInterface, _ entity: Entity) {
@@ -74,4 +80,16 @@ public final class Discovery: ProtocolInterfaceObserver {
     public func onRemoteEntityUpdated(_: ProtocolInterface, _ entity: Entity) {
         debugPrint("remote entity \(entity) updated")
     }
+
+    public func onAecpAemCommand(_: ProtocolInterface, pdu: avdecc_protocol_aem_aecpdu_t) {}
+    public func onAecpAemUnsolicitedResponse(_: ProtocolInterface, pdu: avdecc_protocol_aem_aecpdu_t) {}
+    public func onAecpAemIdentifyNotification(_: ProtocolInterface, pdu: avdecc_protocol_aem_aecpdu_t) {}
+
+    public func onAcmpCommand(_: ProtocolInterface, pdu: avdecc_protocol_acmpdu_t) {}
+    public func onAcmpResponse(_: ProtocolInterface, pdu: avdecc_protocol_acmpdu_t) {}
+
+    public func onAdpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_adpdu_t) {}
+    public func onAemAecpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_aem_aecpdu_t) {}
+    public func onMvuAecpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_mvu_aecpdu_t) {}
+    public func onAcmpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_acmpdu_t) {}
 }

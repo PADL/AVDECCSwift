@@ -72,6 +72,18 @@ public protocol ProtocolInterfaceObserver {
     func onRemoteEntityOnline(_: ProtocolInterface, _: Entity)
     func onRemoteEntityOffline(_: ProtocolInterface, id: UniqueIdentifier)
     func onRemoteEntityUpdated(_: ProtocolInterface, _: Entity)
+
+    func onAecpAemCommand(_: ProtocolInterface, pdu: avdecc_protocol_aem_aecpdu_t)
+    func onAecpAemUnsolicitedResponse(_: ProtocolInterface, pdu: avdecc_protocol_aem_aecpdu_t)
+    func onAecpAemIdentifyNotification(_: ProtocolInterface, pdu: avdecc_protocol_aem_aecpdu_t)
+
+    func onAcmpCommand(_: ProtocolInterface, pdu: avdecc_protocol_acmpdu_t)
+    func onAcmpResponse(_: ProtocolInterface, pdu: avdecc_protocol_acmpdu_t)
+
+    func onAdpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_adpdu_t)
+    func onAemAecpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_aem_aecpdu_t)
+    func onMvuAecpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_mvu_aecpdu_t)
+    func onAcmpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_acmpdu_t)
 }
 
 public final class ProtocolInterface {
@@ -84,6 +96,18 @@ public final class ProtocolInterface {
         thunk.onRemoteEntityOnline = ProtocolInterface_onRemoteEntityOnline
         thunk.onRemoteEntityOffline = ProtocolInterface_onRemoteEntityOffline
         thunk.onRemoteEntityUpdated = ProtocolInterface_onRemoteEntityUpdated
+
+        thunk.onAecpAemCommand = ProtocolInterface_onAecpAemCommand
+        thunk.onAecpAemUnsolicitedResponse = ProtocolInterface_onAecpAemUnsolicitedResponse
+        thunk.onAecpAemIdentifyNotification = ProtocolInterface_onAecpAemIdentifyNotification
+    
+        thunk.onAcmpCommand = ProtocolInterface_onAcmpCommand
+        thunk.onAcmpResponse = ProtocolInterface_onAcmpResponse
+
+        thunk.onAdpduReceived = ProtocolInterface_onAdpduReceived
+        thunk.onAemAecpduReceived = ProtocolInterface_onAemAecpduReceived
+        thunk.onMvuAecpduReceived = ProtocolInterface_onMvuAecpduReceived
+        thunk.onAcmpduReceived = ProtocolInterface_onAcmpduReceived
 
         return thunk
     }()
@@ -406,5 +430,86 @@ private func ProtocolInterface_onRemoteEntityUpdated(
 ) {
     ProtocolInterface.withObserver(handle) {
         $0.observer?.onRemoteEntityUpdated($0, Entity(entity!))
+    }
+}
+
+private func ProtocolInterface_onAecpAemCommand(
+    _ handle: UnsafeMutableRawPointer?,
+    pdu: avdecc_protocol_aem_aecpdu_cp?
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onAecpAemCommand($0, pdu: pdu!.pointee)
+    }
+}
+
+private func ProtocolInterface_onAecpAemUnsolicitedResponse(
+    _ handle: UnsafeMutableRawPointer?,
+    pdu: avdecc_protocol_aem_aecpdu_cp?
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onAecpAemUnsolicitedResponse($0, pdu: pdu!.pointee)
+    }
+}
+
+private func ProtocolInterface_onAecpAemIdentifyNotification(
+    _ handle: UnsafeMutableRawPointer?,
+    pdu: avdecc_protocol_aem_aecpdu_cp?
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onAecpAemIdentifyNotification($0, pdu: pdu!.pointee)
+    }
+}
+
+private func ProtocolInterface_onAcmpCommand(
+    _ handle: UnsafeMutableRawPointer?,
+    pdu: avdecc_protocol_acmpdu_cp?
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onAcmpCommand($0, pdu: pdu!.pointee)
+    }
+}
+
+private func ProtocolInterface_onAcmpResponse(
+    _ handle: UnsafeMutableRawPointer?,
+    pdu: avdecc_protocol_acmpdu_cp?
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onAcmpResponse($0, pdu: pdu!.pointee)
+    }
+}
+
+private func ProtocolInterface_onAdpduReceived(
+    _ handle: UnsafeMutableRawPointer?,
+    pdu: avdecc_protocol_adpdu_cp?
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onAdpduReceived($0, pdu: pdu!.pointee)
+    }
+}
+
+private func ProtocolInterface_onAemAecpduReceived(
+    _ handle: UnsafeMutableRawPointer?,
+    pdu: avdecc_protocol_aem_aecpdu_cp?
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onAemAecpduReceived($0, pdu: pdu!.pointee)
+    }
+}
+
+private func ProtocolInterface_onMvuAecpduReceived(
+    _ handle: UnsafeMutableRawPointer?,
+    pdu: avdecc_protocol_mvu_aecpdu_cp?
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onMvuAecpduReceived($0, pdu: pdu!.pointee)
+    }
+}
+
+private func ProtocolInterface_onAcmpduReceived(
+    _ handle: UnsafeMutableRawPointer?,
+    pdu: avdecc_protocol_acmpdu_cp?
+) {
+    ProtocolInterface.withObserver(handle) {
+        $0.observer?.onAcmpduReceived($0, pdu: pdu!.pointee)
     }
 }

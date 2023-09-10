@@ -81,6 +81,7 @@ public final class LocalEntity {
     }()
 
     var handle: UnsafeMutableRawPointer!
+    public let entity: Entity
     public var delegate: LocalEntityDelegate?
 
     static func withDelegate(
@@ -93,11 +94,11 @@ public final class LocalEntity {
     }
 
     private init(_ protocolInterfaceHandle: UnsafeMutableRawPointer, entity: Entity) throws {
+        self.entity = entity
         var entity = entity.bridgeToAvdeccType()
-        var thunk = LocalEntity.DelegateThunk
 
         try withLocalEntityError {
-            LA_AVDECC_LocalEntity_create(protocolInterfaceHandle, &entity, &thunk, &self.handle)
+            LA_AVDECC_LocalEntity_create(protocolInterfaceHandle, &entity, &LocalEntity.DelegateThunk, &self.handle)
         }
 
         LA_AVDECC_LocalEntity_setApplicationData(
