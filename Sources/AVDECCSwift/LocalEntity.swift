@@ -69,7 +69,7 @@ public protocol LocalEntityDelegate {
 }
 
 public final class LocalEntity {
-    static var DelegateThunk: avdecc_local_entity_controller_delegate_t = {
+    private static var DelegateThunk: avdecc_local_entity_controller_delegate_t = {
         var thunk = avdecc_local_entity_controller_delegate_t()
 
         thunk.onTransportError = LocalEntity_onTransportError
@@ -92,7 +92,7 @@ public final class LocalEntity {
         }
     }
 
-    init(_ protocolInterfaceHandle: UnsafeMutableRawPointer, entity: Entity) throws {
+    private init(_ protocolInterfaceHandle: UnsafeMutableRawPointer, entity: Entity) throws {
         var entity = entity.bridgeToAvdeccType()
         var thunk = LocalEntity.DelegateThunk
 
