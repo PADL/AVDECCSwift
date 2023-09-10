@@ -38,7 +38,7 @@ func nullTerminatedArrayToSwiftArray<T>(
     return array
 }
 
-protocol AVDECCBridgeable {
+protocol AVDECCBridgeable: Sendable {
     associatedtype AVDECCType
 
     init(_: AVDECCType)
@@ -52,8 +52,18 @@ extension AVDECCBridgeable {
     }
 }
 
-public struct EntityDescriptor: Sendable {
+public struct EntityModelEntityDescriptor: AVDECCBridgeable {
+    typealias AVDECCType = avdecc_entity_model_entity_descriptor_t
+
     let descriptor: avdecc_entity_model_entity_descriptor_t
+
+    init(_ descriptor: AVDECCType) {
+        self.descriptor = descriptor
+    }
+
+    func bridgeToAvdeccType() -> AVDECCType {
+        self.descriptor
+    }
 
     public var entityID: UniqueIdentifier { descriptor.entity_id }
     public var entityModelID: UniqueIdentifier { descriptor.entity_model_id }
@@ -94,7 +104,7 @@ public struct EntityDescriptor: Sendable {
 }
 
 public struct EntityModelConfigurationDescriptor: Sendable {
-    public struct Count: Sendable, AVDECCBridgeable {
+    public struct Count: AVDECCBridgeable {
         typealias AVDECCType = avdecc_entity_model_descriptors_count_t
 
         let descriptorType: avdecc_entity_model_descriptor_type_t
@@ -124,7 +134,7 @@ public struct EntityModelConfigurationDescriptor: Sendable {
     }
 }
 
-public struct Entity: Sendable, AVDECCBridgeable {
+public struct Entity: AVDECCBridgeable {
     typealias AVDECCType = avdecc_entity_t
 
     public let commonInformation: avdecc_entity_common_information_t
@@ -160,24 +170,6 @@ extension avdecc_entity_t {
                 next = next?.pointee.next
             }
         }
-    }
-}
-
-public extension avdecc_entity_model_entity_descriptor_s {
-    var entityName: String {
-        String(avdeccFixedString: entity_name)
-    }
-
-    var firmwareVersion: String {
-        String(avdeccFixedString: firmware_version)
-    }
-
-    var groupName: String {
-        String(avdeccFixedString: group_name)
-    }
-
-    var serialNumber: String {
-        String(avdeccFixedString: serial_number)
     }
 }
 

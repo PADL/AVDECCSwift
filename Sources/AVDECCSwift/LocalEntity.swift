@@ -223,9 +223,9 @@ public final class LocalEntity {
 
     public func readEntityDescriptor(
         id entityID: UniqueIdentifier
-    ) async throws -> EntityDescriptor {
+    ) async throws -> EntityModelEntityDescriptor {
         try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-            EntityDescriptor,
+            EntityModelEntityDescriptor,
             Error
         >) in
             guard let self else {
@@ -241,7 +241,7 @@ public final class LocalEntity {
                     continuation.resume(throwing: LocalEntityCommandStatus(status))
                     return
                 }
-                continuation.resume(returning: EntityDescriptor(descriptor: descriptor!.pointee))
+                continuation.resume(returning: EntityModelEntityDescriptor(descriptor!.pointee))
             }
             guard err != 0 else {
                 continuation.resume(throwing: LocalEntityError(err))
