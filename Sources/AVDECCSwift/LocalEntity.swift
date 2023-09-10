@@ -215,12 +215,74 @@ public final class LocalEntity {
         }
     }
 
-    // LA_AVDECC_LocalEntity_lockEntity
-    // LA_AVDECC_LocalEntity_unlockEntity
+    public func lockEntity(
+        id entityID: UniqueIdentifier,
+        descriptorType: EntityModelDescriptorType,
+        descriptorIndex: EntityModelDescriptorIndex
+    ) async throws -> UniqueIdentifier {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_lockEntity_block(
+                handle,
+                entityID,
+                descriptorType,
+                descriptorIndex
+            ) { _, _, status, lockingEntity, _, _ in
+                continuation(status, lockingEntity)
+            }
+        }
+    }
+
+    public func unlockEntity(
+        id entityID: UniqueIdentifier,
+        descriptorType: EntityModelDescriptorType,
+        descriptorIndex: EntityModelDescriptorIndex
+    ) async throws -> UniqueIdentifier {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_unlockEntity_block(
+                handle,
+                entityID,
+                descriptorType,
+                descriptorIndex
+            ) { _, _, status, lockingEntity, _, _ in
+                continuation(status, lockingEntity)
+            }
+        }
+    }
+
     // LA_AVDECC_LocalEntity_queryEntityAvailable
     // LA_AVDECC_LocalEntity_queryControllerAvailable
-    // LA_AVDECC_LocalEntity_registerUnsolicitedNotifications
-    // LA_AVDECC_LocalEntity_unregisterUnsolicitedNotifications
+
+    public func registerUnsolicitedNotifications(
+        id entityID: UniqueIdentifier
+    ) async throws -> () {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_registerUnsolicitedNotifications_block(
+                handle,
+                entityID
+            ) { _, _, status in
+                continuation(
+                    status,
+                    ()
+                )
+            }
+        }
+    }
+
+    public func unregisterUnsolicitedNotifications(
+        id entityID: UniqueIdentifier
+    ) async throws -> () {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_unregisterUnsolicitedNotifications_block(
+                handle,
+                entityID
+            ) { _, _, status in
+                continuation(
+                    status,
+                    ()
+                )
+            }
+        }
+    }
 
     public func readEntityDescriptor(
         id entityID: UniqueIdentifier

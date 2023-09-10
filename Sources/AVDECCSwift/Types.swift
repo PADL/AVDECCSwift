@@ -149,7 +149,7 @@ public struct EntityModelAudioUnitDescriptor: Sendable {
         self.descriptor = descriptor
     }
 
-    public var objectName: String { String(avdeccFixedString: descriptor.object_name) }
+    public var objectName: String { descriptor.objectName }
     public var localizedDescription: avdecc_entity_model_localized_string_reference_t {
         descriptor.localized_description
     }
@@ -197,6 +197,32 @@ public struct EntityModelAudioUnitDescriptor: Sendable {
 }
 
 public typealias EntityModelClockSourceDescriptor = avdecc_entity_model_clock_source_descriptor_t
+
+public struct EntityModelClockDomainDescriptor: Sendable {
+    private let descriptor: avdecc_entity_model_clock_domain_descriptor_t
+
+    public let clockSources: [EntityModelDescriptorIndex]
+
+    init(_ descriptor: avdecc_entity_model_clock_domain_descriptor_t) {
+        clockSources = nullTerminatedArrayToSwiftArray(descriptor.clock_sources)
+
+        var descriptor = descriptor
+        descriptor.clock_sources = nil
+        self.descriptor = descriptor
+    }
+
+    public var objectName: String {
+        descriptor.objectName
+    }
+
+    public var localizedDescription: avdecc_entity_model_localized_string_reference_t {
+        descriptor.localized_description
+    }
+
+    public var clockSourceIndex: EntityModelDescriptorIndex {
+        descriptor.clock_source_index
+    }
+}
 
 public typealias EntityModelMsrpMapping = avdecc_entity_model_msrp_mapping_t
 
