@@ -98,7 +98,12 @@ public final class LocalEntity {
         var entity = entity.bridgeToAvdeccType()
 
         try withLocalEntityError {
-            LA_AVDECC_LocalEntity_create(protocolInterfaceHandle, &entity, &LocalEntity.DelegateThunk, &self.handle)
+            LA_AVDECC_LocalEntity_create(
+                protocolInterfaceHandle,
+                &entity,
+                &LocalEntity.DelegateThunk,
+                &self.handle
+            )
         }
 
         LA_AVDECC_LocalEntity_setApplicationData(

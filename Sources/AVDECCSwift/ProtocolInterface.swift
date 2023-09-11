@@ -100,7 +100,7 @@ public final class ProtocolInterface {
         thunk.onAecpAemCommand = ProtocolInterface_onAecpAemCommand
         thunk.onAecpAemUnsolicitedResponse = ProtocolInterface_onAecpAemUnsolicitedResponse
         thunk.onAecpAemIdentifyNotification = ProtocolInterface_onAecpAemIdentifyNotification
-    
+
         thunk.onAcmpCommand = ProtocolInterface_onAcmpCommand
         thunk.onAcmpResponse = ProtocolInterface_onAcmpResponse
 
@@ -118,9 +118,15 @@ public final class ProtocolInterface {
     public var observer: ProtocolInterfaceObserver? {
         didSet {
             if observer != nil {
-                LA_AVDECC_ProtocolInterface_registerObserver(handle, &ProtocolInterface.ObserverThunk)
+                LA_AVDECC_ProtocolInterface_registerObserver(
+                    handle,
+                    &ProtocolInterface.ObserverThunk
+                )
             } else {
-                LA_AVDECC_ProtocolInterface_unregisterObserver(handle, &ProtocolInterface.ObserverThunk)
+                LA_AVDECC_ProtocolInterface_unregisterObserver(
+                    handle,
+                    &ProtocolInterface.ObserverThunk
+                )
             }
         }
     }

@@ -55,21 +55,28 @@ public actor Discovery: ProtocolInterfaceObserver {
     private let progID = UInt16(5)
 
     init(interfaceID: String) throws {
-        self.protocolInterface = try ProtocolInterface(interfaceID: interfaceID)
-        self.protocolInterface.observer = self
+        protocolInterface = try ProtocolInterface(interfaceID: interfaceID)
+        protocolInterface.observer = self
     }
 
     func localEntity_test() async throws {
         var commonInformation = avdecc_entity_common_information_t()
         commonInformation.entity_id = try protocolInterface.getDynamicEID()
         // FIXME: provide accessors to avoid needing to access rawValue
-        commonInformation.controller_capabilities = UInt16(avdecc_entity_controller_capabilities_implemented.rawValue)
+        commonInformation
+            .controller_capabilities = UInt16(
+                avdecc_entity_controller_capabilities_implemented
+                    .rawValue
+            )
 
         var interfaceInfo = avdecc_entity_interface_information_s()
         interfaceInfo.interface_index = LA_AVDECC_getGlobalAvbInterfaceIndex()
         interfaceInfo.valid_time = 31
 
-        let entity = Entity(commonInformation: commonInformation, interfacesInformation: [interfaceInfo])
+        let entity = Entity(
+            commonInformation: commonInformation,
+            interfacesInformation: [interfaceInfo]
+        )
         let localEntity = try LocalEntity(protocolInterface: protocolInterface, entity: entity)
 
         try protocolInterface.discoverRemoteEntities()
@@ -86,7 +93,10 @@ public actor Discovery: ProtocolInterfaceObserver {
         debugPrint("transport error")
     }
 
-    public nonisolated func onLocalEntityOnline(_ protocolInterface: ProtocolInterface, _ entity: Entity) {
+    public nonisolated func onLocalEntityOnline(
+        _ protocolInterface: ProtocolInterface,
+        _ entity: Entity
+    ) {
         debugPrint("local entity \(entity) online")
     }
 
@@ -113,15 +123,30 @@ public actor Discovery: ProtocolInterfaceObserver {
         debugPrint("remote entity \(entity) updated")
     }
 
-    public nonisolated func onAecpAemCommand(_: ProtocolInterface, pdu: avdecc_protocol_aem_aecpdu_t) {}
-    public nonisolated func onAecpAemUnsolicitedResponse(_: ProtocolInterface, pdu: avdecc_protocol_aem_aecpdu_t) {}
-    public nonisolated func onAecpAemIdentifyNotification(_: ProtocolInterface, pdu: avdecc_protocol_aem_aecpdu_t) {}
+    public nonisolated func onAecpAemCommand(
+        _: ProtocolInterface,
+        pdu: avdecc_protocol_aem_aecpdu_t
+    ) {}
+    public nonisolated func onAecpAemUnsolicitedResponse(
+        _: ProtocolInterface,
+        pdu: avdecc_protocol_aem_aecpdu_t
+    ) {}
+    public nonisolated func onAecpAemIdentifyNotification(
+        _: ProtocolInterface,
+        pdu: avdecc_protocol_aem_aecpdu_t
+    ) {}
 
     public nonisolated func onAcmpCommand(_: ProtocolInterface, pdu: avdecc_protocol_acmpdu_t) {}
     public nonisolated func onAcmpResponse(_: ProtocolInterface, pdu: avdecc_protocol_acmpdu_t) {}
 
     public nonisolated func onAdpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_adpdu_t) {}
-    public nonisolated func onAemAecpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_aem_aecpdu_t) {}
-    public nonisolated func onMvuAecpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_mvu_aecpdu_t) {}
+    public nonisolated func onAemAecpduReceived(
+        _: ProtocolInterface,
+        pdu: avdecc_protocol_aem_aecpdu_t
+    ) {}
+    public nonisolated func onMvuAecpduReceived(
+        _: ProtocolInterface,
+        pdu: avdecc_protocol_mvu_aecpdu_t
+    ) {}
     public nonisolated func onAcmpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_acmpdu_t) {}
 }
