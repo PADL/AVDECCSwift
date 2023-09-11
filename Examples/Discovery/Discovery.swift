@@ -60,7 +60,7 @@ public actor Discovery: ProtocolInterfaceObserver {
     }
 
     func localEntity_test() async throws {
-        var commonInformation = avdecc_entity_common_information_t()
+        var commonInformation = EntityCommonInformation()
         commonInformation.entity_id = try protocolInterface.getDynamicEID()
         // FIXME: provide accessors to avoid needing to access rawValue
         commonInformation
@@ -69,8 +69,7 @@ public actor Discovery: ProtocolInterfaceObserver {
                     .rawValue
             )
 
-        var interfaceInfo = avdecc_entity_interface_information_t()
-        interfaceInfo.interface_index = LA_AVDECC_getGlobalAvbInterfaceIndex()
+        var interfaceInfo = EntityInterfaceInformation()
         interfaceInfo.mac_address = try protocolInterface.macAddress
 
         let entity = Entity(
