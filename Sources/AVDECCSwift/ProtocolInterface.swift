@@ -167,6 +167,7 @@ public final class ProtocolInterface {
 
     deinit {
         if handle != nil {
+            try? shutdown()
             LA_AVDECC_ProtocolInterface_setApplicationData(handle, nil)
             LA_AVDECC_ProtocolInterface_destroy(handle)
         }
