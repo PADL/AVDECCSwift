@@ -1,0 +1,3 @@
+module CxxAVDECC {
+    umbrella header "CxxAVDECC.h"
+}

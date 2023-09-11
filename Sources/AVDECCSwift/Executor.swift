@@ -17,7 +17,7 @@
  * along with AVDECCSwift.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import CAVDECC
+import CxxAVDECC
 
 public enum ExecutorError: UInt8, Error {
     case alreadyExists = 1

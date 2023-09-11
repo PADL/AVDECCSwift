@@ -17,7 +17,7 @@
  * along with AVDECCSwift.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import CAVDECC
+import CxxAVDECC
 
 public enum LocalEntityError: UInt8, Error {
     case invalidParameters = 1

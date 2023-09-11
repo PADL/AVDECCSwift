@@ -17,7 +17,7 @@
  * along with AVDECCSwift.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import CAVDECC
+import CxxAVDECC
 
 public typealias EntityModelLocalizedStringReference =
     avdecc_entity_model_localized_string_reference_t

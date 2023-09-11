@@ -17,7 +17,7 @@
  * along with AVDECCSwift.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import CAVDECC
+import CxxAVDECC
 
 public enum ProtocolInterfaceError: UInt8, Error {
     case transportError = 1
