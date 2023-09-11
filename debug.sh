@@ -23,4 +23,5 @@ LD_LIBRARY_PATH=$ARTIFCATS:$ARTIFACTS/bindings/c:$ARTIFACTS/controller:$LD_LIBRA
 export LD_LIBRARY_PATH
 
 lldb .build/debug/$1
+#valgrind .build/debug/Discovery ens160
 

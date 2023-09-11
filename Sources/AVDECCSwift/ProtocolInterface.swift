@@ -116,11 +116,10 @@ public final class ProtocolInterface {
 
     public var observer: ProtocolInterfaceObserver? {
         didSet {
-            var thunk = ProtocolInterface.ObserverThunk
             if observer != nil {
-                LA_AVDECC_ProtocolInterface_registerObserver(handle, &thunk)
+                LA_AVDECC_ProtocolInterface_registerObserver(handle, &ProtocolInterface.ObserverThunk)
             } else {
-                LA_AVDECC_ProtocolInterface_unregisterObserver(handle, &thunk)
+                LA_AVDECC_ProtocolInterface_unregisterObserver(handle, &ProtocolInterface.ObserverThunk)
             }
         }
     }

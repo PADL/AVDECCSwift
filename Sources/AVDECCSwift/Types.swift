@@ -271,10 +271,13 @@ public struct Entity: AVDECCBridgeable {
     }
 
     init(_ entity: AVDECCType) {
-        commonInformation = entity.common_information
+        self.commonInformation = entity.common_information
         var interfacesInformation = [avdecc_entity_interface_information_t]()
         entity.forEachInterface {
-            interfacesInformation.append($0.pointee)
+            var interface = $0.pointee
+            // zero out next pointer, because it will fall out of scope
+            interface.next = nil
+            interfacesInformation.append(interface)
         }
         self.interfacesInformation = interfacesInformation
     }

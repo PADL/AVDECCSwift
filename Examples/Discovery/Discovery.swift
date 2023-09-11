@@ -38,13 +38,13 @@ public final class Discovery: ProtocolInterfaceObserver {
         RunLoop.main.run()
     }
 
-    let executor = Executor.shared
-    let protocolInterface: ProtocolInterface
-    var localEntity: LocalEntity?
+    private let executor = Executor.shared
+    private let protocolInterface: ProtocolInterface
+    private var localEntities = [UniqueIdentifier: LocalEntity]()
 
     init(interfaceID: String) throws {
-        protocolInterface = try ProtocolInterface(interfaceID: interfaceID)
-        protocolInterface.observer = self
+        self.protocolInterface = try ProtocolInterface(interfaceID: interfaceID)
+        self.protocolInterface.observer = self
         try protocolInterface.discoverRemoteEntities()
     }
 
@@ -54,15 +54,17 @@ public final class Discovery: ProtocolInterfaceObserver {
 
     public func onLocalEntityOnline(_ protocolInterface: ProtocolInterface, _ entity: Entity) {
         debugPrint("local entity \(entity) online")
-        localEntity = try? LocalEntity(protocolInterface: protocolInterface, entity: entity)
-        debugPrint("initialized entity \(localEntity!)")
+        do {
+            let localEntity = try LocalEntity(protocolInterface: protocolInterface, entity: entity)
+            self.localEntities[entity.entityID] = localEntity
+        } catch {
+            debugPrint("failed to initialize local entity: \(error)")
+        }
     }
 
     public func onLocalEntityOffline(_: ProtocolInterface, id: UniqueIdentifier) {
         debugPrint("local entity \(id) offline")
-        if id == localEntity?.entity.entityID {
-            localEntity = nil
-        }
+        self.localEntities[id] = nil
     }
 
     public func onLocalEntityUpdated(_: ProtocolInterface, _ entity: Entity) {
