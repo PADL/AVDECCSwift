@@ -294,7 +294,7 @@ public final class ProtocolInterface {
                 }
                 continuation.resume(returning: value)
             }
-            guard err != 0 else {
+            guard err == 0 else {
                 continuation.resume(throwing: ProtocolInterfaceError(err))
                 return
             }

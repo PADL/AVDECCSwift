@@ -170,7 +170,7 @@ public final class LocalEntity {
             }
 
             let err = handler(self.handle) { status, value in
-                guard status != 0 else {
+                guard status == 0 else {
                     continuation.resume(throwing: LocalEntityAemCommandStatus(status))
                     return
                 }
@@ -180,7 +180,7 @@ public final class LocalEntity {
                 }
                 continuation.resume(returning: value)
             }
-            guard err != 0 else {
+            guard err == 0 else {
                 continuation.resume(throwing: LocalEntityError(err))
                 return
             }

@@ -69,17 +69,15 @@ public actor Discovery: ProtocolInterfaceObserver {
                     .rawValue
             )
 
-        var interfaceInfo = avdecc_entity_interface_information_s()
+        var interfaceInfo = avdecc_entity_interface_information_t()
         interfaceInfo.interface_index = LA_AVDECC_getGlobalAvbInterfaceIndex()
-        interfaceInfo.valid_time = 31
+        interfaceInfo.mac_address = try protocolInterface.macAddress
 
         let entity = Entity(
             commonInformation: commonInformation,
             interfacesInformation: [interfaceInfo]
         )
         let localEntity = try LocalEntity(protocolInterface: protocolInterface, entity: entity)
-
-        try protocolInterface.discoverRemoteEntities()
 
         for await entity in entitiesChannel {
             let entityDescriptor = try await localEntity.readEntityDescriptor(id: entity.entityID)
