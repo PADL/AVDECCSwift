@@ -112,6 +112,7 @@ public final class ProtocolInterface {
         return thunk
     }()
 
+    private var executor = Executor.shared // ensure library initialized
     let handle: UnsafeMutableRawPointer!
 
     public var observer: ProtocolInterfaceObserver? {
@@ -180,14 +181,12 @@ public final class ProtocolInterface {
         }
     }
 
-    public var dynamicEID: UniqueIdentifier {
-        get throws {
-            var id = UniqueIdentifier()
-            try withProtocolInterfaceError {
-                LA_AVDECC_ProtocolInterface_getDynamicEID(handle, &id)
-            }
-            return id
+    public func getDynamicEID() throws -> UniqueIdentifier {
+        var id = UniqueIdentifier()
+        try withProtocolInterfaceError {
+            LA_AVDECC_ProtocolInterface_getDynamicEID(handle, &id)
         }
+        return id
     }
 
     public func releaseDynamicEID(_ id: UniqueIdentifier) throws {

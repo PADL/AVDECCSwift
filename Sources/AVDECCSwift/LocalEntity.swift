@@ -113,6 +113,7 @@ public final class LocalEntity {
 
     deinit {
         if handle != nil {
+            LA_AVDECC_LocalEntity_setApplicationData(handle, nil)
             LA_AVDECC_LocalEntity_destroy(handle)
         }
     }

@@ -260,19 +260,28 @@ public struct EntityModelAvbInfo: Sendable {
 
 public typealias EntityModelMilanInfo = avdecc_entity_model_milan_info_t
 
+public typealias EntityCommonInformation = avdecc_entity_common_information_t
+public typealias EntityInterfaceInformation = avdecc_entity_interface_information_t
+
 public struct Entity: AVDECCBridgeable {
     typealias AVDECCType = avdecc_entity_t
 
-    public let commonInformation: avdecc_entity_common_information_t
-    public let interfacesInformation: [avdecc_entity_interface_information_t]
+    public let commonInformation: EntityCommonInformation
+    public let interfacesInformation: [EntityInterfaceInformation]
 
     public var entityID: UniqueIdentifier {
         commonInformation.entity_id
     }
 
+    public init(commonInformation: EntityCommonInformation,
+                interfacesInformation: [EntityInterfaceInformation]) {
+        self.commonInformation = commonInformation
+        self.interfacesInformation = interfacesInformation
+    }
+
     init(_ entity: AVDECCType) {
         self.commonInformation = entity.common_information
-        var interfacesInformation = [avdecc_entity_interface_information_t]()
+        var interfacesInformation = [EntityInterfaceInformation]()
         entity.forEachInterface {
             var interface = $0.pointee
             // zero out next pointer, because it will fall out of scope
@@ -285,7 +294,10 @@ public struct Entity: AVDECCBridgeable {
     func bridgeToAvdeccType() -> AVDECCType {
         var entity = avdecc_entity_t()
         entity.common_information = commonInformation
-        // FIXME: interfaces
+        // FIXME: interfaces next
+        if !interfacesInformation.isEmpty {
+            entity.interfaces_information = interfacesInformation.first!
+        }
         return entity
     }
 }
