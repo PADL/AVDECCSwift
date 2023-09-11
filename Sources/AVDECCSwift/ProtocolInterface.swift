@@ -18,6 +18,7 @@
  */
 
 import CxxAVDECC
+import CxxStdlib
 
 public enum ProtocolInterfaceError: UInt8, Error {
     case transportError = 1

@@ -18,6 +18,7 @@
  */
 
 import CxxAVDECC
+import CxxStdlib
 
 public enum LocalEntityError: UInt8, Error {
     case invalidParameters = 1

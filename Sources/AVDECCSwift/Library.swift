@@ -18,6 +18,7 @@
  */
 
 import CxxAVDECC
+import CxxStdlib
 
 final class Library {
     static var shared = Library()

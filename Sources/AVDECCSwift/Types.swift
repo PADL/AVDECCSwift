@@ -18,6 +18,7 @@
  */
 
 import CxxAVDECC
+import CxxStdlib
 
 public typealias EntityModelLocalizedStringReference =
     avdecc_entity_model_localized_string_reference_t
