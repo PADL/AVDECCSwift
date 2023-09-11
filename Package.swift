@@ -58,15 +58,6 @@ let package = Package(
         // .package(url: "https://github.com/lhoward/AsyncExtensions", branch: "linux"),
     ],
     targets: [
-        .executableTarget(
-            name: "Discovery",
-            dependencies: [
-                "AVDECCSwift",
-                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
-            ],
-            path: "Examples/Discovery",
-            swiftSettings: [.interoperabilityMode(.Cxx)]
-        ),
         .binaryTarget(
             name: "avdecc",
             path: "avdecc.artifactbundle.zip"
@@ -122,6 +113,16 @@ let package = Package(
                 .headerSearchPath("../CxxAVDECC/avdecc/include/la/avdecc"),
                 .headerSearchPath("../CxxAVDECC/avdecc/externals/nih/include"),
             ],
+            swiftSettings: [.interoperabilityMode(.Cxx)]
+        ),
+        .executableTarget(
+            name: "Discovery",
+            dependencies: [
+                "AVDECCSwift",
+                "CxxAVDECC",
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            ],
+            path: "Examples/Discovery",
             swiftSettings: [.interoperabilityMode(.Cxx)]
         ),
     ],
