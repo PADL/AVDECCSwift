@@ -52,11 +52,17 @@ let package = Package(
             targets: ["AVDECCSwift"]
         ),
     ],
+    dependencies: [
+        // Dependencies declare other packages that this package depends on.
+        .package(url: "https://github.com/apple/swift-async-algorithms", from: "0.1.0"),
+        //.package(url: "https://github.com/lhoward/AsyncExtensions", branch: "linux"),
+    ],
     targets: [
         .executableTarget(
             name: "Discovery",
             dependencies: [
                 "AVDECCSwift",
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms")
             ],
             path: "Examples/Discovery"
         ),
@@ -126,10 +132,14 @@ let package = Package(
                 "avdecc/tests",
             ],
             cSettings: [
-                .unsafeFlags(["-I", "/opt/swift/usr/lib/swift"]),
+                .headerSearchPath("avdecc/include"),
+                .headerSearchPath("avdecc/include/la"),
+                .headerSearchPath("avdecc/include/la/avdecc"),
             ],
             cxxSettings: [
-                .unsafeFlags(["-I", "/opt/swift/usr/lib/swift"]),
+                .headerSearchPath("avdecc/include"),
+                .headerSearchPath("avdecc/include/la"),
+                .headerSearchPath("avdecc/include/la/avdecc"),
             ],
             linkerSettings: [
                 .linkedLibrary("la_avdecc_c-d"),
@@ -142,6 +152,16 @@ let package = Package(
             name: "AVDECCSwift",
             dependencies: [
                 "CAVDECC",
+            ],
+            cSettings: [
+                .headerSearchPath("../CAVDECC/avdecc/include"),
+                .headerSearchPath("../CAVDECC/avdecc/include/la"),
+                .headerSearchPath("../CAVDECC/avdecc/include/la/avdecc"),
+            ],
+            cxxSettings: [
+                .headerSearchPath("../CAVDECC/avdecc/include"),
+                .headerSearchPath("../CAVDECC/avdecc/include/la"),
+                .headerSearchPath("../CAVDECC/avdecc/include/la/avdecc"),
             ]
         ),
     ],
