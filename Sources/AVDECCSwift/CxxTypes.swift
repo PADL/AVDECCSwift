@@ -36,38 +36,38 @@ extension AvdeccCxxBridgeable {
     }
 }
 
-extension UniqueIdentifier {
-    typealias AvdeccCxxType = la.avdecc.UniqueIdentifier
+public extension UniqueIdentifier {
+    internal typealias AvdeccCxxType = la.avdecc.UniqueIdentifier
 
-    public static var NullUniqueIdentifier: Self {
+    static var NullUniqueIdentifier: Self {
         Self(AvdeccCxxType.getNullUniqueIdentifier())
     }
 
-    public static var UninitializedUniqueIdentifier: Self {
+    static var UninitializedUniqueIdentifier: Self {
         Self(AvdeccCxxType.getUninitializedUniqueIdentifier())
     }
 
-    init(_ id: AvdeccCxxType) {
-        self.eui = id.getValue()
+    internal init(_ id: AvdeccCxxType) {
+        eui = id.getValue()
     }
 
-    func bridgeToAvdeccCxxType() -> AvdeccCxxType {
+    internal func bridgeToAvdeccCxxType() -> AvdeccCxxType {
         AvdeccCxxType(id)
     }
 
-    public var vendorID: Any {
+    var vendorID: Any {
         bridgeToAvdeccCxxType().getVendorID()
     }
 
-    public var isGroupIdentifier: Bool {
+    var isGroupIdentifier: Bool {
         bridgeToAvdeccCxxType().isGroupIdentifier()
     }
 
-    public var isLocalIdentifier: Bool {
+    var isLocalIdentifier: Bool {
         bridgeToAvdeccCxxType().isLocalIdentifier()
     }
 
-    public var isValid: Bool {
+    var isValid: Bool {
         bridgeToAvdeccCxxType().isValid()
     }
 }

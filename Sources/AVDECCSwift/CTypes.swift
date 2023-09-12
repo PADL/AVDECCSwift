@@ -19,7 +19,7 @@
 
 import CxxAVDECC
 import CxxStdlib
-import Foundation // FIXME: :(
+import Foundation // FIXME: (
 
 public typealias EntityModelLocalizedStringReference =
     avdecc_entity_model_localized_string_reference_t
@@ -34,11 +34,11 @@ public struct UniqueIdentifier: CustomStringConvertible, Equatable, Hashable, Se
     }
 
     public init() {
-        self.eui = 0xFFFFFFFFFFFFFFFF
+        eui = 0xFFFF_FFFF_FFFF_FFFF
     }
 
     init(_ id: avdecc_unique_identifier_t) {
-        self.eui = id
+        eui = id
     }
 
     public var description: String {
@@ -89,7 +89,7 @@ public struct EntityModelEntityDescriptor: AvdeccCBridgeable, CustomStringConver
     }
 
     public var description: String {
-        return "\(type(of: self))(entityID: \(entityID), entityName: \(entityName))"
+        "\(type(of: self))(entityID: \(entityID), entityName: \(entityName))"
     }
 
     public var entityID: UniqueIdentifier { UniqueIdentifier(descriptor.entity_id) }
@@ -293,11 +293,11 @@ public extension avdecc_entity_common_information_t {
             UniqueIdentifier(entity_id)
         }
         set {
-            self.entity_id = newValue.id
+            entity_id = newValue.id
         }
     }
 }
- 
+
 public typealias EntityInterfaceInformation = avdecc_entity_interface_information_t
 
 public struct Entity: AvdeccCBridgeable, CustomStringConvertible {
@@ -311,7 +311,7 @@ public struct Entity: AvdeccCBridgeable, CustomStringConvertible {
     }
 
     public var description: String {
-        return "\(type(of: self))(entityID: \(entityID))"
+        "\(type(of: self))(entityID: \(entityID))"
     }
 
     public init(
