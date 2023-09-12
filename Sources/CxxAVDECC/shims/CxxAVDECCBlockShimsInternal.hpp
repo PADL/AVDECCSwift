@@ -25,12 +25,11 @@ la::avdecc::entity::AggregateEntity &
 getAggregateEntity(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle);
 la::avdecc::protocol::ProtocolInterface &
 getProtocolInterface(LA_AVDECC_PROTOCOL_INTERFACE_HANDLE const handle);
-}
-}
-}
+} // namespace bindings
+} // namespace avdecc
+} // namespace la
 
-namespace CxxAVDECC
-{
+namespace CxxAVDECC {
 // Block smart pointer
 template <typename Ret, typename... Args> class Block final {
     typedef Ret (^BlockType)(Args...);
@@ -77,7 +76,9 @@ template <typename Ret, typename... Args> class Block final {
     BlockType get() const { return _block; }
     BlockType operator->() const { return _block; }
 
-    operator const void *() const noexcept { return static_cast<void *>(_block); }
+    operator const void *() const noexcept {
+        return static_cast<void *>(_block);
+    }
 
     Ret operator()(Args &&...arg) const noexcept {
         return _block(std::forward<Args>(arg)...);
@@ -86,4 +87,4 @@ template <typename Ret, typename... Args> class Block final {
   private:
     BlockType _block;
 };
-}
+} // namespace CxxAVDECC
