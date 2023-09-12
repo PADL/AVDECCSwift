@@ -61,7 +61,7 @@ public actor Discovery: ProtocolInterfaceObserver {
 
     func localEntity_test() async throws {
         var commonInformation = EntityCommonInformation()
-        commonInformation.entity_id = try protocolInterface.getDynamicEID()
+        commonInformation.entityID = try protocolInterface.getDynamicEID()
         // FIXME: provide accessors to avoid needing to access rawValue
         commonInformation
             .controller_capabilities = UInt16(
@@ -83,7 +83,7 @@ public actor Discovery: ProtocolInterfaceObserver {
             debugPrint("read entity descriptor: \(entityDescriptor) for entity \(entity.entityID)")
         }
 
-        try? protocolInterface.releaseDynamicEID(commonInformation.entity_id)
+        try? protocolInterface.releaseDynamicEID(commonInformation.entityID)
     }
 
     public nonisolated func onTransportError(_: ProtocolInterface) {

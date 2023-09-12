@@ -190,16 +190,16 @@ public final class ProtocolInterface {
     }
 
     public func getDynamicEID() throws -> UniqueIdentifier {
-        var id = UniqueIdentifier()
+        var id = avdecc_unique_identifier_t()
         try withProtocolInterfaceError {
             LA_AVDECC_ProtocolInterface_getDynamicEID(handle, &id)
         }
-        return id
+        return UniqueIdentifier(id)
     }
 
     public func releaseDynamicEID(_ id: UniqueIdentifier) throws {
         try withProtocolInterfaceError {
-            LA_AVDECC_ProtocolInterface_releaseDynamicEID(handle, id)
+            LA_AVDECC_ProtocolInterface_releaseDynamicEID(handle, id.id)
         }
     }
 
@@ -244,7 +244,7 @@ public final class ProtocolInterface {
 
     public func discoverRemoteEntity(id: UniqueIdentifier) throws {
         try withProtocolInterfaceError {
-            LA_AVDECC_ProtocolInterface_discoverRemoteEntity(handle, id)
+            LA_AVDECC_ProtocolInterface_discoverRemoteEntity(handle, id.id)
         }
     }
 
@@ -396,10 +396,10 @@ private func ProtocolInterface_onLocalEntityOnline(
 
 private func ProtocolInterface_onLocalEntityOffline(
     _ handle: UnsafeMutableRawPointer?,
-    _ entityID: UniqueIdentifier
+    _ entityID: avdecc_unique_identifier_t
 ) {
     ProtocolInterface.withObserver(handle) {
-        $0.observer?.onLocalEntityOffline($0, id: entityID)
+        $0.observer?.onLocalEntityOffline($0, id: UniqueIdentifier(entityID))
     }
 }
 
@@ -423,10 +423,10 @@ private func ProtocolInterface_onRemoteEntityOnline(
 
 private func ProtocolInterface_onRemoteEntityOffline(
     _ handle: UnsafeMutableRawPointer?,
-    _ entityID: UniqueIdentifier
+    _ entityID: avdecc_unique_identifier_t
 ) {
     ProtocolInterface.withObserver(handle) {
-        $0.observer?.onRemoteEntityOffline($0, id: entityID)
+        $0.observer?.onRemoteEntityOffline($0, id: UniqueIdentifier(entityID))
     }
 }
 

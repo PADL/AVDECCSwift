@@ -96,7 +96,7 @@ public final class LocalEntity {
 
     private init(_ protocolInterfaceHandle: UnsafeMutableRawPointer, entity: Entity) throws {
         self.entity = entity
-        var entity = entity.bridgeToAvdeccType()
+        var entity = entity.bridgeToAvdeccCType()
 
         try withLocalEntityError {
             LA_AVDECC_LocalEntity_create(
@@ -144,7 +144,7 @@ public final class LocalEntity {
 
     public func discoverRemoteEntity(id: UniqueIdentifier) throws {
         try withLocalEntityError {
-            LA_AVDECC_LocalEntity_discoverRemoteEntity(handle, id)
+            LA_AVDECC_LocalEntity_discoverRemoteEntity(handle, id.id)
         }
     }
 
@@ -196,12 +196,12 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_acquireEntity_block(
                 handle,
-                entityID,
+                entityID.id,
                 isPersistent ? 1 : 0,
                 descriptorType,
                 descriptorIndex
             ) { _, _, status, owningEntity, _, _ in
-                continuation(status, owningEntity)
+                continuation(status, UniqueIdentifier(owningEntity))
             }
         }
     }
@@ -214,11 +214,11 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_releaseEntity_block(
                 handle,
-                entityID,
+                entityID.id,
                 descriptorType,
                 descriptorIndex
             ) { _, _, status, owningEntity, _, _ in
-                continuation(status, owningEntity)
+                continuation(status, UniqueIdentifier(owningEntity))
             }
         }
     }
@@ -231,11 +231,11 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_lockEntity_block(
                 handle,
-                entityID,
+                entityID.id,
                 descriptorType,
                 descriptorIndex
             ) { _, _, status, lockingEntity, _, _ in
-                continuation(status, lockingEntity)
+                continuation(status, UniqueIdentifier(lockingEntity))
             }
         }
     }
@@ -248,11 +248,11 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_unlockEntity_block(
                 handle,
-                entityID,
+                entityID.id,
                 descriptorType,
                 descriptorIndex
             ) { _, _, status, lockingEntity, _, _ in
-                continuation(status, lockingEntity)
+                continuation(status, UniqueIdentifier(lockingEntity))
             }
         }
     }
@@ -266,7 +266,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_registerUnsolicitedNotifications_block(
                 handle,
-                entityID
+                entityID.id
             ) { _, _, status in
                 continuation(
                     status,
@@ -282,7 +282,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_unregisterUnsolicitedNotifications_block(
                 handle,
-                entityID
+                entityID.id
             ) { _, _, status in
                 continuation(
                     status,
@@ -298,7 +298,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_readEntityDescriptor_block(
                 handle,
-                entityID
+                entityID.id
             ) { _, _, status, descriptor in
                 continuation(
                     status,
@@ -315,7 +315,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_readConfigurationDescriptor_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex
             ) { _, _, status, _, descriptor in
                 continuation(
@@ -335,7 +335,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_readAudioUnitDescriptor_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 audioUnitIndex
             ) { _, _, status, _, _, descriptor in
@@ -373,7 +373,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setConfiguration_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex
             ) { _, _, status, _ in
                 continuation(
@@ -390,7 +390,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getConfiguration_block(
                 handle,
-                entityID
+                entityID.id
             ) { _, _, status, index in
                 continuation(
                     status,
@@ -422,7 +422,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setEntityName_block(
                 handle,
-                entityID,
+                entityID.id,
                 entityName
             ) { _, _, status, _ in
                 continuation(
@@ -439,7 +439,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getEntityName_block(
                 handle,
-                entityID
+                entityID.id
             ) { _, _, status, entityName in
                 continuation(
                     status,
@@ -456,7 +456,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setEntityGroupName_block(
                 handle,
-                entityID,
+                entityID.id,
                 entityGroupName
             ) { _, _, status, _ in
                 continuation(
@@ -473,7 +473,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getEntityGroupName_block(
                 handle,
-                entityID
+                entityID.id
             ) { _, _, status, entityGroupName in
                 continuation(
                     status,
@@ -491,7 +491,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setConfigurationName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 configurationName
             ) { _, _, status, _, _ in
@@ -510,7 +510,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getConfigurationName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex
             ) { _, _, status, _, configurationName in
                 continuation(
@@ -530,7 +530,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setAudioUnitName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 audioUnitIndex,
                 audioUnitName
@@ -551,7 +551,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getAudioUnitName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 audioUnitIndex
             ) { _, _, status, _, _, audioUnitName in
@@ -572,7 +572,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setStreamInputName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 streamIndex,
                 streamInputName
@@ -593,7 +593,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getStreamInputName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 streamIndex
             ) { _, _, status, _, _, streamInputName in
@@ -614,7 +614,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setStreamOutputName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 streamIndex,
                 streamOutputName
@@ -635,7 +635,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getStreamOutputName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 streamIndex
             ) { _, _, status, _, _, streamOutputName in
@@ -656,7 +656,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setAvbInterfaceName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 avbInterfaceIndex,
                 avbInterfaceName
@@ -677,7 +677,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getAvbInterfaceName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 avbInterfaceIndex
             ) { _, _, status, _, _, avbInterfaceName in
@@ -698,7 +698,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setClockSourceName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 clockSourceIndex,
                 clockSourceName
@@ -719,7 +719,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getClockSourceName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 clockSourceIndex
             ) { _, _, status, _, _, clockSourceName in
@@ -740,7 +740,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setMemoryObjectName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 memoryObjectIndex,
                 memoryObjectName
@@ -761,7 +761,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getMemoryObjectName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 memoryObjectIndex
             ) { _, _, status, _, _, memoryObjectName in
@@ -782,7 +782,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setAudioClusterName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 audioClusterIndex,
                 audioClusterName
@@ -803,7 +803,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getAudioClusterName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 audioClusterIndex
             ) { _, _, status, _, _, audioClusterName in
@@ -824,7 +824,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setClockDomainName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 clockDomainIndex,
                 clockDomainName
@@ -845,7 +845,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getClockDomainName_block(
                 handle,
-                entityID,
+                entityID.id,
                 configurationIndex,
                 clockDomainIndex
             ) { _, _, status, _, _, clockDomainName in
@@ -865,7 +865,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setAudioUnitSamplingRate_block(
                 handle,
-                entityID,
+                entityID.id,
                 audioUnitIndex,
                 samplingRate
             ) { _, _, status, _, _ in
@@ -881,7 +881,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getAudioUnitSamplingRate_block(
                 handle,
-                entityID,
+                entityID.id,
                 audioUnitIndex
             ) { _, _, status, _, samplingRate in
                 continuation(status, samplingRate)
@@ -897,7 +897,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setVideoClusterSamplingRate_block(
                 handle,
-                entityID,
+                entityID.id,
                 videoClusterIndex,
                 samplingRate
             ) { _, _, status, _, _ in
@@ -913,7 +913,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getVideoClusterSamplingRate_block(
                 handle,
-                entityID,
+                entityID.id,
                 videoClusterIndex
             ) { _, _, status, _, samplingRate in
                 continuation(status, samplingRate)
@@ -929,7 +929,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setSensorClusterSamplingRate_block(
                 handle,
-                entityID,
+                entityID.id,
                 sensorClusterIndex,
                 samplingRate
             ) { _, _, status, _, _ in
@@ -945,7 +945,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getSensorClusterSamplingRate_block(
                 handle,
-                entityID,
+                entityID.id,
                 sensorClusterIndex
             ) { _, _, status, _, samplingRate in
                 continuation(status, samplingRate)
@@ -961,7 +961,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setClockSource_block(
                 handle,
-                entityID,
+                entityID.id,
                 clockDomainIndex,
                 clockSourceIndex
             ) { _, _, status, _, _ in
@@ -977,7 +977,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getClockSource_block(
                 handle,
-                entityID,
+                entityID.id,
                 clockDomainIndex
             ) { _, _, status, _, clockSourceIndex in
                 continuation(status, clockSourceIndex)
@@ -992,7 +992,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_startStreamInput_block(
                 handle,
-                entityID,
+                entityID.id,
                 streamIndex
             ) { _, _, status, _ in
                 continuation(status, ())
@@ -1007,7 +1007,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_startStreamOutput_block(
                 handle,
-                entityID,
+                entityID.id,
                 streamIndex
             ) { _, _, status, _ in
                 continuation(status, ())
@@ -1022,7 +1022,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_stopStreamInput_block(
                 handle,
-                entityID,
+                entityID.id,
                 streamIndex
             ) { _, _, status, _ in
                 continuation(status, ())
@@ -1037,7 +1037,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_stopStreamOutput_block(
                 handle,
-                entityID,
+                entityID.id,
                 streamIndex
             ) { _, _, status, _ in
                 continuation(status, ())
@@ -1052,7 +1052,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getAvbInfo_block(
                 handle,
-                entityID,
+                entityID.id,
                 avbInterfaceIndex
             ) { _, _, status, _, info in
                 continuation(status, info != nil ? EntityModelAvbInfo(info!.pointee) : nil)
@@ -1073,7 +1073,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getMilanInfo_block(
                 handle,
-                entityID
+                entityID.id
             ) { _, _, status, info in
                 continuation(status, info?.pointee)
             }
@@ -1096,29 +1096,29 @@ private func LocalEntity_onTransportError(handle: UnsafeMutableRawPointer?) {
 
 private func LocalEntity_onEntityOnline(
     _ handle: UnsafeMutableRawPointer?,
-    _ entityID: UniqueIdentifier,
+    _ entityID: avdecc_unique_identifier_t,
     _ entity: avdecc_entity_cp?
 ) {
     LocalEntity.withDelegate(handle) {
-        $0.delegate?.onEntityOnline($0, id: entityID, entity: Entity(entity!))
+        $0.delegate?.onEntityOnline($0, id: UniqueIdentifier(entityID), entity: Entity(entity!))
     }
 }
 
 private func LocalEntity_onEntityUpdate(
     _ handle: UnsafeMutableRawPointer?,
-    _ entityID: UniqueIdentifier,
+    _ entityID: avdecc_unique_identifier_t,
     _ entity: avdecc_entity_cp?
 ) {
     LocalEntity.withDelegate(handle) {
-        $0.delegate?.onEntityUpdate($0, id: entityID, entity: Entity(entity!))
+        $0.delegate?.onEntityUpdate($0, id: UniqueIdentifier(entityID), entity: Entity(entity!))
     }
 }
 
 private func LocalEntity_onEntityOffline(
     _ handle: UnsafeMutableRawPointer?,
-    _ entityID: UniqueIdentifier
+    _ entityID: avdecc_unique_identifier_t
 ) {
     LocalEntity.withDelegate(handle) {
-        $0.delegate?.onEntityOffline($0, id: entityID)
+        $0.delegate?.onEntityOffline($0, id: UniqueIdentifier(entityID))
     }
 }

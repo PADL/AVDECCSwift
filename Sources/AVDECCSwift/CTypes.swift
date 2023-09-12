@@ -19,12 +19,32 @@
 
 import CxxAVDECC
 import CxxStdlib
+import Foundation // FIXME: :(
 
 public typealias EntityModelLocalizedStringReference =
     avdecc_entity_model_localized_string_reference_t
 public typealias EntityModelDescriptorType = avdecc_entity_model_descriptor_type_t
 public typealias EntityModelDescriptorIndex = avdecc_entity_model_descriptor_index_t
-public typealias UniqueIdentifier = avdecc_unique_identifier_t
+
+public struct UniqueIdentifier: CustomStringConvertible, Equatable, Hashable, Sendable {
+    var eui: avdecc_unique_identifier_t
+
+    public var id: UInt64 {
+        eui
+    }
+
+    public init() {
+        self.eui = 0xFFFFFFFFFFFFFFFF
+    }
+
+    init(_ id: avdecc_unique_identifier_t) {
+        self.eui = id
+    }
+
+    public var description: String {
+        String(format: "0x%llx", id)
+    }
+}
 
 func nullTerminatedArrayToSwiftArray<T>(
     _ args: UnsafeMutablePointer<UnsafeMutablePointer<T>?>?
@@ -41,35 +61,39 @@ func nullTerminatedArrayToSwiftArray<T>(
     return array
 }
 
-protocol AVDECCBridgeable: Sendable {
-    associatedtype AVDECCType
+protocol AvdeccCBridgeable: Sendable {
+    associatedtype AvdeccCType
 
-    init(_: AVDECCType)
+    init(_: AvdeccCType)
 
-    func bridgeToAvdeccType() -> AVDECCType
+    func bridgeToAvdeccCType() -> AvdeccCType
 }
 
-extension AVDECCBridgeable {
-    init(_ entity: UnsafePointer<AVDECCType>) {
+extension AvdeccCBridgeable {
+    init(_ entity: UnsafePointer<AvdeccCType>) {
         self.init(entity.pointee)
     }
 }
 
-public struct EntityModelEntityDescriptor: AVDECCBridgeable {
-    typealias AVDECCType = avdecc_entity_model_entity_descriptor_t
+public struct EntityModelEntityDescriptor: AvdeccCBridgeable, CustomStringConvertible {
+    typealias AvdeccCType = avdecc_entity_model_entity_descriptor_t
 
-    private let descriptor: AVDECCType
+    private let descriptor: AvdeccCType
 
-    init(_ descriptor: AVDECCType) {
+    init(_ descriptor: AvdeccCType) {
         self.descriptor = descriptor
     }
 
-    func bridgeToAvdeccType() -> AVDECCType {
+    func bridgeToAvdeccCType() -> AvdeccCType {
         descriptor
     }
 
-    public var entityID: UniqueIdentifier { descriptor.entity_id }
-    public var entityModelID: UniqueIdentifier { descriptor.entity_model_id }
+    public var description: String {
+        return "\(type(of: self))(entityID: \(entityID), entityName: \(entityName))"
+    }
+
+    public var entityID: UniqueIdentifier { UniqueIdentifier(descriptor.entity_id) }
+    public var entityModelID: UniqueIdentifier { UniqueIdentifier(descriptor.entity_model_id) }
     public var entityCapabilities: avdecc_entity_entity_capabilities_t {
         descriptor.entity_capabilities
     }
@@ -89,7 +113,7 @@ public struct EntityModelEntityDescriptor: AVDECCBridgeable {
     }
 
     public var availableIndex: UInt { UInt(descriptor.available_index) }
-    public var associationID: UniqueIdentifier { descriptor.association_id }
+    public var associationID: UniqueIdentifier { UniqueIdentifier(descriptor.association_id) }
     public var entityName: String { String(avdeccFixedString: descriptor.entity_name) }
     public var vendorNameString: EntityModelLocalizedStringReference {
         descriptor.vendor_name_string
@@ -107,18 +131,18 @@ public struct EntityModelEntityDescriptor: AVDECCBridgeable {
 }
 
 public struct EntityModelConfigurationDescriptor: Sendable {
-    public struct Count: AVDECCBridgeable {
-        typealias AVDECCType = avdecc_entity_model_descriptors_count_t
+    public struct Count: AvdeccCBridgeable {
+        typealias AvdeccCType = avdecc_entity_model_descriptors_count_t
 
         public let descriptorType: avdecc_entity_model_descriptor_type_t
         public let count: UInt16
 
-        init(_ count: AVDECCType) {
+        init(_ count: AvdeccCType) {
             descriptorType = count.descriptor_type
             self.count = count.count
         }
 
-        func bridgeToAvdeccType() -> AVDECCType {
+        func bridgeToAvdeccCType() -> AvdeccCType {
             var count = avdecc_entity_model_descriptors_count_t()
             count.descriptor_type = descriptorType
             count.count = self.count
@@ -243,7 +267,7 @@ public struct EntityModelAvbInfo: Sendable {
     }
 
     public var gptpGrandmasterID: UniqueIdentifier {
-        info.gptp_grandmaster_id
+        UniqueIdentifier(info.gptp_grandmaster_id)
     }
 
     public var propagationDelay: UInt {
@@ -262,16 +286,32 @@ public struct EntityModelAvbInfo: Sendable {
 public typealias EntityModelMilanInfo = avdecc_entity_model_milan_info_t
 
 public typealias EntityCommonInformation = avdecc_entity_common_information_t
+
+public extension avdecc_entity_common_information_t {
+    var entityID: UniqueIdentifier {
+        get {
+            UniqueIdentifier(entity_id)
+        }
+        set {
+            self.entity_id = newValue.id
+        }
+    }
+}
+ 
 public typealias EntityInterfaceInformation = avdecc_entity_interface_information_t
 
-public struct Entity: AVDECCBridgeable {
-    typealias AVDECCType = avdecc_entity_t
+public struct Entity: AvdeccCBridgeable, CustomStringConvertible {
+    typealias AvdeccCType = avdecc_entity_t
 
     public let commonInformation: EntityCommonInformation
     public let interfacesInformation: [EntityInterfaceInformation]
 
     public var entityID: UniqueIdentifier {
-        commonInformation.entity_id
+        commonInformation.entityID
+    }
+
+    public var description: String {
+        return "\(type(of: self))(entityID: \(entityID))"
     }
 
     public init(
@@ -282,7 +322,7 @@ public struct Entity: AVDECCBridgeable {
         self.interfacesInformation = interfacesInformation
     }
 
-    init(_ entity: AVDECCType) {
+    init(_ entity: AvdeccCType) {
         commonInformation = entity.common_information
         var interfacesInformation = [EntityInterfaceInformation]()
         entity.forEachInterface {
@@ -294,7 +334,7 @@ public struct Entity: AVDECCBridgeable {
         self.interfacesInformation = interfacesInformation
     }
 
-    func bridgeToAvdeccType() -> AVDECCType {
+    func bridgeToAvdeccCType() -> AvdeccCType {
         var entity = avdecc_entity_t()
         entity.common_information = commonInformation
         // FIXME: interfaces next
