@@ -1,3 +1,4 @@
 module CxxAVDECC {
     umbrella header "CxxAVDECC.h"
+    requires blocks
 }

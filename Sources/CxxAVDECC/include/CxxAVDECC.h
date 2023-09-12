@@ -5,3 +5,5 @@
 #ifdef __cplusplus
 #include "../avdecc/include/la/avdecc/avdecc.hpp"
 #endif
+
+#include "CxxAVDECCBlockShims.h"
