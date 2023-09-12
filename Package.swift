@@ -49,6 +49,7 @@ let package = Package(
     products: [
         .library(
             name: "AVDECCSwift",
+            type: .dynamic, // build dynamic library to comply with LGPL
             targets: ["AVDECCSwift"]
         ),
     ],
