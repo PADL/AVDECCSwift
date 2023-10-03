@@ -89,7 +89,10 @@ let package = Package(
                 .headerSearchPath("avdecc/include/la/avdecc"),
                 .headerSearchPath("avdecc/externals/nih/include"),
             ],
-            swiftSettings: [.interoperabilityMode(.Cxx)],
+            swiftSettings: [
+                .interoperabilityMode(.Cxx),
+                .enableExperimentalFeature("StrictConcurrency")
+            ],
             linkerSettings: [
                 .linkedLibrary("la_avdecc_c-d"),
                 .linkedLibrary("la_avdecc_cxx-d"),
@@ -114,7 +117,10 @@ let package = Package(
                 .headerSearchPath("../CxxAVDECC/avdecc/include/la/avdecc"),
                 .headerSearchPath("../CxxAVDECC/avdecc/externals/nih/include"),
             ],
-            swiftSettings: [.interoperabilityMode(.Cxx)]
+            swiftSettings: [
+                .interoperabilityMode(.Cxx),
+                .enableExperimentalFeature("StrictConcurrency")
+            ]
         ),
         .executableTarget(
             name: "Discovery",

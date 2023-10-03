@@ -88,30 +88,27 @@ public protocol ProtocolInterfaceObserver {
 }
 
 public final class ProtocolInterface {
-    static var ObserverThunk: avdecc_protocol_interface_observer_t = {
-        var thunk = avdecc_protocol_interface_observer_t()
-        thunk.onTransportError = ProtocolInterface_onTransportError
-        thunk.onLocalEntityOnline = ProtocolInterface_onLocalEntityOnline
-        thunk.onLocalEntityOffline = ProtocolInterface_onLocalEntityOffline
-        thunk.onLocalEntityUpdated = ProtocolInterface_onLocalEntityUpdated
-        thunk.onRemoteEntityOnline = ProtocolInterface_onRemoteEntityOnline
-        thunk.onRemoteEntityOffline = ProtocolInterface_onRemoteEntityOffline
-        thunk.onRemoteEntityUpdated = ProtocolInterface_onRemoteEntityUpdated
+    static var ObserverThunk = avdecc_protocol_interface_observer_t(
+        onTransportError: ProtocolInterface_onTransportError,
+        onLocalEntityOnline: ProtocolInterface_onLocalEntityOnline,
+        onLocalEntityOffline: ProtocolInterface_onLocalEntityOffline,
+        onLocalEntityUpdated: ProtocolInterface_onLocalEntityUpdated,
+        onRemoteEntityOnline: ProtocolInterface_onRemoteEntityOnline,
+        onRemoteEntityOffline: ProtocolInterface_onRemoteEntityOffline,
+        onRemoteEntityUpdated: ProtocolInterface_onRemoteEntityUpdated,
 
-        thunk.onAecpAemCommand = ProtocolInterface_onAecpAemCommand
-        thunk.onAecpAemUnsolicitedResponse = ProtocolInterface_onAecpAemUnsolicitedResponse
-        thunk.onAecpAemIdentifyNotification = ProtocolInterface_onAecpAemIdentifyNotification
+        onAecpAemCommand: ProtocolInterface_onAecpAemCommand,
+        onAecpAemUnsolicitedResponse: ProtocolInterface_onAecpAemUnsolicitedResponse,
+        onAecpAemIdentifyNotification: ProtocolInterface_onAecpAemIdentifyNotification,
 
-        thunk.onAcmpCommand = ProtocolInterface_onAcmpCommand
-        thunk.onAcmpResponse = ProtocolInterface_onAcmpResponse
+        onAcmpCommand: ProtocolInterface_onAcmpCommand,
+        onAcmpResponse: ProtocolInterface_onAcmpResponse,
 
-        thunk.onAdpduReceived = ProtocolInterface_onAdpduReceived
-        thunk.onAemAecpduReceived = ProtocolInterface_onAemAecpduReceived
-        thunk.onMvuAecpduReceived = ProtocolInterface_onMvuAecpduReceived
-        thunk.onAcmpduReceived = ProtocolInterface_onAcmpduReceived
-
-        return thunk
-    }()
+        onAdpduReceived: ProtocolInterface_onAdpduReceived,
+        onAemAecpduReceived: ProtocolInterface_onAemAecpduReceived,
+        onMvuAecpduReceived: ProtocolInterface_onMvuAecpduReceived,
+        onAcmpduReceived: ProtocolInterface_onAcmpduReceived
+    )
 
     private var executor = Executor.shared // ensure library initialized
     let handle: UnsafeMutableRawPointer!
