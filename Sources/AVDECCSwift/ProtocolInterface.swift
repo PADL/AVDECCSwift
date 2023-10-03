@@ -88,7 +88,7 @@ public protocol ProtocolInterfaceObserver {
 }
 
 public final class ProtocolInterface {
-    static var ObserverThunk = avdecc_protocol_interface_observer_t(
+    private static let ObserverThunk = avdecc_protocol_interface_observer_t(
         onTransportError: ProtocolInterface_onTransportError,
         onLocalEntityOnline: ProtocolInterface_onLocalEntityOnline,
         onLocalEntityOffline: ProtocolInterface_onLocalEntityOffline,
@@ -111,6 +111,7 @@ public final class ProtocolInterface {
     )
 
     private var executor = Executor.shared // ensure library initialized
+    private var thunk = ProtocolInterface.ObserverThunk
     let handle: UnsafeMutableRawPointer!
 
     public var observer: ProtocolInterfaceObserver? {
@@ -118,12 +119,12 @@ public final class ProtocolInterface {
             if observer != nil {
                 LA_AVDECC_ProtocolInterface_registerObserver(
                     handle,
-                    &ProtocolInterface.ObserverThunk
+                    &thunk
                 )
             } else {
                 LA_AVDECC_ProtocolInterface_unregisterObserver(
                     handle,
-                    &ProtocolInterface.ObserverThunk
+                    &thunk
                 )
             }
         }
