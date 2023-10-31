@@ -1,3 +1,3 @@
 [submodule "Sources/CxxAVDECC/avdecc"]
 	path = Sources/CxxAVDECC/avdecc
-	url = git@github.com:PADL/avdecc.git
+	url = git@github.com:L-Acoustics/avdecc.git
