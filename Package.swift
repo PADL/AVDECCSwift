@@ -23,9 +23,10 @@ Architecture = "arm64"
 #endif
 
 // FIXME: this is clearly not right
-let AvdeccBuildDir = "avdecc/_build_\(Platform)_\(Architecture)_makefiles_\(BuildConfiguration)"
-let AvdeccArtifactRoot = ".build/artifacts/avdeccswift/\(AvdeccBuildDir)"
-let AvdeccCxxLibPath = "\(AvdeccArtifactRoot)/src"
+let AvdeccBuildDir = "_build_\(Platform)_\(Architecture)_makefiles_\(BuildConfiguration)"
+let AvdeccArtifactRoot = ".build/artifacts/avdeccswift/avdecc"
+let AvdeccIncludePath = "\(AvdeccArtifactRoot)/include"
+let AvdeccCxxLibPath = "\(AvdeccArtifactRoot)/\(AvdeccBuildDir)/src"
 let AvdeccCLibPath = "\(AvdeccCxxLibPath)/bindings/c"
 let AvdeccCxxControllerLibPath = "\(AvdeccCxxLibPath)/controller"
 let AvdeccAltLibPath = "/usr/local/lib"
@@ -69,7 +70,7 @@ let package = Package(
                 "avdecc",
             ],
             exclude: [
-                AvdeccBuildDir,
+                "avdecc/\(AvdeccBuildDir)",
                 "avdecc/examples",
                 "avdecc/externals",
                 "avdecc/resources",
@@ -78,20 +79,16 @@ let package = Package(
                 "avdecc/tests",
             ],
             cSettings: [
-                .headerSearchPath("../CxxAVDECC/avdecc/include"),
-                .headerSearchPath("../CxxAVDECC/avdecc/include/la"),
-                .headerSearchPath("../CxxAVDECC/avdecc/include/la/avdecc"),
-                .headerSearchPath("../CxxAVDECC/avdecc/externals/nih/include"),
+                .headerSearchPath("avdecc/include"),
+                .headerSearchPath("avdecc/externals/nih/include"),
             ],
             cxxSettings: [
-                .headerSearchPath("../CxxAVDECC/avdecc/include"),
-                .headerSearchPath("../CxxAVDECC/avdecc/include/la"),
-                .headerSearchPath("../CxxAVDECC/avdecc/include/la/avdecc"),
-                .headerSearchPath("../CxxAVDECC/avdecc/externals/nih/include"),
+                .headerSearchPath("avdecc/include"),
+                .headerSearchPath("avdecc/externals/nih/include"),
             ],
             swiftSettings: [
                 .interoperabilityMode(.Cxx),
-                .enableExperimentalFeature("StrictConcurrency")
+                .enableExperimentalFeature("StrictConcurrency"),
             ],
             linkerSettings: [
                 .linkedLibrary("la_avdecc_c-d"),
@@ -107,19 +104,15 @@ let package = Package(
             ],
             cSettings: [
                 .headerSearchPath("../CxxAVDECC/avdecc/include"),
-                .headerSearchPath("../CxxAVDECC/avdecc/include/la"),
-                .headerSearchPath("../CxxAVDECC/avdecc/include/la/avdecc"),
                 .headerSearchPath("../CxxAVDECC/avdecc/externals/nih/include"),
             ],
             cxxSettings: [
                 .headerSearchPath("../CxxAVDECC/avdecc/include"),
-                .headerSearchPath("../CxxAVDECC/avdecc/include/la"),
-                .headerSearchPath("../CxxAVDECC/avdecc/include/la/avdecc"),
                 .headerSearchPath("../CxxAVDECC/avdecc/externals/nih/include"),
             ],
             swiftSettings: [
                 .interoperabilityMode(.Cxx),
-                .enableExperimentalFeature("StrictConcurrency")
+                .enableExperimentalFeature("StrictConcurrency"),
             ]
         ),
         .executableTarget(
