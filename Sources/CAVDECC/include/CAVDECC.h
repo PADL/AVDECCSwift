@@ -25,4 +25,4 @@
 #include "la/avdecc/avdecc.hpp"
 #endif
 
-#include "CxxAVDECCBlockShims.h"
+#include "CAVDECCBlockShims.h"

@@ -17,8 +17,7 @@
  * along with AVDECCSwift.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import CxxAVDECC
-import CxxStdlib
+import CAVDECC
 import Foundation // FIXME: (
 
 public typealias EntityModelLocalizedStringReference =

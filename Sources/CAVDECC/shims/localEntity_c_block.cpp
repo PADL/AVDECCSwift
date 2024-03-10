@@ -23,13 +23,13 @@
 * @brief C block bindings for la::avdecc::LocalEntity.
 */
 
-#include "CxxAVDECCBlockShimsInternal.hpp"
+#include "CAVDECCBlockShimsInternal.hpp"
 
 extern la::avdecc::bindings::HandleManager<la::avdecc::entity::AggregateEntity::UniquePointer> s_AggregateEntityManager;
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_acquireEntity_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_bool_t const isPersistent, avdecc_entity_model_descriptor_type_t const descriptorType, avdecc_entity_model_descriptor_index_t const descriptorIndex, avdecc_local_entity_acquire_entity_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -50,7 +50,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_releaseEntity_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const descriptorType, avdecc_entity_model_descriptor_index_t const descriptorIndex, avdecc_local_entity_release_entity_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -71,7 +71,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_lockEntity_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const descriptorType, avdecc_entity_model_descriptor_index_t const descriptorIndex, avdecc_local_entity_lock_entity_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -92,7 +92,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_unlockEntity_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const descriptorType, avdecc_entity_model_descriptor_index_t const descriptorIndex, avdecc_local_entity_unlock_entity_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -113,7 +113,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_queryEntityAvailable_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_local_entity_query_entity_available_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -134,7 +134,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_queryControllerAvailable_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_local_entity_query_controller_available_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -155,7 +155,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_registerUnsolicitedNotifications_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_local_entity_register_unsolicited_notifications_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -176,7 +176,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_unregisterUnsolicitedNotifications_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_local_entity_unregister_unsolicited_notifications_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -197,7 +197,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readEntityDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_local_entity_read_entity_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -219,7 +219,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readConfigurationDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_local_entity_read_configuration_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -245,7 +245,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readAudioUnitDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const audioUnitIndex, avdecc_local_entity_read_audio_unit_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -271,7 +271,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readStreamInputDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_read_stream_input_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -302,7 +302,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readStreamOutputDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_read_stream_output_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -333,7 +333,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readJackInputDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const jackIndex, avdecc_local_entity_read_jack_input_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -355,7 +355,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readJackOutputDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const jackIndex, avdecc_local_entity_read_jack_output_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -377,7 +377,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readAvbInterfaceDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const avbInterfaceIndex, avdecc_local_entity_read_avb_interface_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -399,7 +399,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readClockSourceDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const clockSourceIndex, avdecc_local_entity_read_clock_source_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -421,7 +421,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readMemoryObjectDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const memoryObjectIndex, avdecc_local_entity_read_memory_object_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -443,7 +443,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readLocaleDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const localeIndex, avdecc_local_entity_read_locale_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -465,7 +465,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readStringsDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const stringsIndex, avdecc_local_entity_read_strings_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -487,7 +487,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readStreamPortInputDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const streamPortIndex, avdecc_local_entity_read_stream_port_input_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -509,7 +509,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readStreamPortOutputDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const streamPortIndex, avdecc_local_entity_read_stream_port_output_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -531,7 +531,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readExternalPortInputDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const externalPortIndex, avdecc_local_entity_read_external_port_input_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -553,7 +553,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readExternalPortOutputDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const externalPortIndex, avdecc_local_entity_read_external_port_output_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -575,7 +575,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readInternalPortInputDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const internalPortIndex, avdecc_local_entity_read_internal_port_input_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -597,7 +597,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readInternalPortOutputDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const internalPortIndex, avdecc_local_entity_read_internal_port_output_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -619,7 +619,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readAudioClusterDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const clusterIndex, avdecc_local_entity_read_audio_cluster_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -641,7 +641,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readAudioMapDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const mapIndex, avdecc_local_entity_read_audio_map_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -666,7 +666,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_readClockDomainDescriptor_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const clockDomainIndex, avdecc_local_entity_read_clock_domain_descriptor_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -691,7 +691,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setConfiguration_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_local_entity_set_configuration_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -712,7 +712,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getConfiguration_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_local_entity_get_configuration_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -733,7 +733,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setStreamInputFormat_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_entity_model_stream_format_t const streamFormat, avdecc_local_entity_set_stream_input_format_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -754,7 +754,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getStreamInputFormat_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_get_stream_input_format_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -775,7 +775,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setStreamOutputFormat_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_entity_model_stream_format_t const streamFormat, avdecc_local_entity_set_stream_output_format_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -796,7 +796,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getStreamOutputFormat_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_get_stream_output_format_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -817,7 +817,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getStreamPortInputAudioMap_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamPortIndex, avdecc_entity_model_descriptor_index_t const mapIndex, avdecc_local_entity_get_stream_port_input_audio_map_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -840,7 +840,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getStreamPortOutputAudioMap_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamPortIndex, avdecc_entity_model_descriptor_index_t const mapIndex, avdecc_local_entity_get_stream_port_output_audio_map_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -863,7 +863,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_addStreamPortInputAudioMappings_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamPortIndex, avdecc_entity_model_audio_mapping_cp const* const mappings, avdecc_local_entity_add_stream_port_input_audio_mappings_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -887,7 +887,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_addStreamPortOutputAudioMappings_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamPortIndex, avdecc_entity_model_audio_mapping_cp const* const mappings, avdecc_local_entity_add_stream_port_output_audio_mappings_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -911,7 +911,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_removeStreamPortInputAudioMappings_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamPortIndex, avdecc_entity_model_audio_mapping_cp const* const mappings, avdecc_local_entity_remove_stream_port_input_audio_mappings_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -935,7 +935,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_removeStreamPortOutputAudioMappings_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamPortIndex, avdecc_entity_model_audio_mapping_cp const* const mappings, avdecc_local_entity_remove_stream_port_output_audio_mappings_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -959,7 +959,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setStreamInputInfo_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_entity_model_stream_info_cp const info, avdecc_local_entity_set_stream_input_info_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -982,7 +982,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setStreamOutputInfo_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_entity_model_stream_info_cp const info, avdecc_local_entity_set_stream_output_info_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1005,7 +1005,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getStreamInputInfo_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_get_stream_input_info_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1027,7 +1027,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getStreamOutputInfo_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_get_stream_output_info_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1049,7 +1049,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setEntityName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_fixed_string_t const entityName, avdecc_local_entity_set_entity_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1070,7 +1070,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getEntityName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_local_entity_get_entity_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1091,7 +1091,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setEntityGroupName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_fixed_string_t const entityGroupName, avdecc_local_entity_set_entity_group_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1112,7 +1112,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getEntityGroupName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_local_entity_get_entity_group_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1133,7 +1133,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setConfigurationName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_fixed_string_t const configurationName, avdecc_local_entity_set_configuration_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1154,7 +1154,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getConfigurationName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_local_entity_get_configuration_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1175,7 +1175,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setAudioUnitName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const audioUnitIndex, avdecc_fixed_string_t const audioUnitName, avdecc_local_entity_set_audio_unit_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1196,7 +1196,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getAudioUnitName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const audioUnitIndex, avdecc_local_entity_get_audio_unit_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1217,7 +1217,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setStreamInputName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_fixed_string_t const streamInputName, avdecc_local_entity_set_stream_input_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1238,7 +1238,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getStreamInputName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_get_stream_input_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1259,7 +1259,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setStreamOutputName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_fixed_string_t const streamOutputName, avdecc_local_entity_set_stream_output_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1280,7 +1280,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getStreamOutputName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_get_stream_output_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1301,7 +1301,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setAvbInterfaceName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const avbInterfaceIndex, avdecc_fixed_string_t const avbInterfaceName, avdecc_local_entity_set_avb_interface_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1322,7 +1322,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getAvbInterfaceName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const avbInterfaceIndex, avdecc_local_entity_get_avb_interface_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1343,7 +1343,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setClockSourceName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const clockSourceIndex, avdecc_fixed_string_t const clockSourceName, avdecc_local_entity_set_clock_source_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1364,7 +1364,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getClockSourceName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const clockSourceIndex, avdecc_local_entity_get_clock_source_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1385,7 +1385,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setMemoryObjectName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const memoryObjectIndex, avdecc_fixed_string_t const memoryObjectName, avdecc_local_entity_set_memory_object_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1406,7 +1406,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getMemoryObjectName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const memoryObjectIndex, avdecc_local_entity_get_memory_object_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1427,7 +1427,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setAudioClusterName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const audioClusterIndex, avdecc_fixed_string_t const audioClusterName, avdecc_local_entity_set_audio_cluster_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1448,7 +1448,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getAudioClusterName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const audioClusterIndex, avdecc_local_entity_get_audio_cluster_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1469,7 +1469,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setClockDomainName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const clockDomainIndex, avdecc_fixed_string_t const clockDomainName, avdecc_local_entity_set_clock_domain_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1490,7 +1490,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getClockDomainName_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const configurationIndex, avdecc_entity_model_descriptor_type_t const clockDomainIndex, avdecc_local_entity_get_clock_domain_name_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1511,7 +1511,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setAudioUnitSamplingRate_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const audioUnitIndex, avdecc_entity_model_sampling_rate_t const samplingRate, avdecc_local_entity_set_audio_unit_sampling_rate_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1532,7 +1532,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getAudioUnitSamplingRate_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const audioUnitIndex, avdecc_local_entity_get_audio_unit_sampling_rate_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1553,7 +1553,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setVideoClusterSamplingRate_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const videoClusterIndex, avdecc_entity_model_sampling_rate_t const samplingRate, avdecc_local_entity_set_video_cluster_sampling_rate_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1574,7 +1574,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getVideoClusterSamplingRate_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const videoClusterIndex, avdecc_local_entity_get_video_cluster_sampling_rate_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1595,7 +1595,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setSensorClusterSamplingRate_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const sensorClusterIndex, avdecc_entity_model_sampling_rate_t const samplingRate, avdecc_local_entity_set_sensor_cluster_sampling_rate_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1616,7 +1616,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getSensorClusterSamplingRate_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const sensorClusterIndex, avdecc_local_entity_get_sensor_cluster_sampling_rate_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1637,7 +1637,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_setClockSource_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const clockDomainIndex, avdecc_entity_model_descriptor_type_t const clockSourceIndex, avdecc_local_entity_set_clock_source_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1658,7 +1658,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getClockSource_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const clockDomainIndex, avdecc_local_entity_get_clock_source_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1679,7 +1679,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_startStreamInput_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_start_stream_input_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1700,7 +1700,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_startStreamOutput_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_start_stream_output_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1721,7 +1721,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_stopStreamInput_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_stop_stream_input_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1742,7 +1742,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_stopStreamOutput_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_stop_stream_output_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1763,7 +1763,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getAvbInfo_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const avbInterfaceIndex, avdecc_local_entity_get_avb_info_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1788,7 +1788,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getAsPath_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const avbInterfaceIndex, avdecc_local_entity_get_as_path_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1813,7 +1813,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getEntityCounters_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_local_entity_get_entity_counters_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1834,7 +1834,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getAvbInterfaceCounters_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const avbInterfaceIndex, avdecc_local_entity_get_avb_interface_counters_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1855,7 +1855,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getClockDomainCounters_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const clockDomainIndex, avdecc_local_entity_get_clock_domain_counters_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1876,7 +1876,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getStreamInputCounters_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_get_stream_input_counters_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1897,7 +1897,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getStreamOutputCounters_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_entity_model_descriptor_type_t const streamIndex, avdecc_local_entity_get_stream_output_counters_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1920,7 +1920,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getMilanInfo_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_local_entity_get_milan_info_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1944,7 +1944,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_connectStream_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_entity_model_stream_identification_cp const talkerStream, avdecc_entity_model_stream_identification_cp const listenerStream, avdecc_local_entity_connect_stream_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1967,7 +1967,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_disconnectStream_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_entity_model_stream_identification_cp const talkerStream, avdecc_entity_model_stream_identification_cp const listenerStream, avdecc_local_entity_disconnect_stream_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -1990,7 +1990,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_disconnectTalkerStream_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_entity_model_stream_identification_cp const talkerStream, avdecc_entity_model_stream_identification_cp const listenerStream, avdecc_local_entity_disconnect_talker_stream_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -2013,7 +2013,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getTalkerStreamState_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_entity_model_stream_identification_cp const talkerStream, avdecc_local_entity_get_talker_stream_state_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -2036,7 +2036,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getListenerStreamState_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_entity_model_stream_identification_cp const listenerStream, avdecc_local_entity_get_listener_stream_state_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -2059,7 +2059,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_C
 
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_getTalkerStreamConnection_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_entity_model_stream_identification_cp const talkerStream, unsigned short const connectionIndex, avdecc_local_entity_get_talker_stream_connection_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{

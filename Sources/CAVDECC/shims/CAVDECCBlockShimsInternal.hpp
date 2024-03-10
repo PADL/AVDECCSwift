@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "CxxAVDECC.h"
+#include "CAVDECC.h"
 
 #include <la/avdecc/internals/entity.hpp>
 #include <la/avdecc/internals/aggregateEntity.hpp>
@@ -48,7 +48,7 @@ getProtocolInterface(LA_AVDECC_PROTOCOL_INTERFACE_HANDLE const handle);
 } // namespace avdecc
 } // namespace la
 
-namespace CxxAVDECC {
+namespace CAVDECC {
 // Block smart pointer
 template <typename Ret, typename... Args> class Block final {
     typedef Ret (^BlockType)(Args...);
@@ -106,4 +106,4 @@ template <typename Ret, typename... Args> class Block final {
   private:
     BlockType _block;
 };
-} // namespace CxxAVDECC
+} // namespace CAVDECC

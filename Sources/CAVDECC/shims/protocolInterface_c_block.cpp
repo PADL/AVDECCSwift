@@ -23,13 +23,13 @@
 * @brief C block bindings for la::avdecc::protocol::ProtocolInterface.
 */
 
-#include "CxxAVDECCBlockShimsInternal.hpp"
+#include "CAVDECCBlockShimsInternal.hpp"
 
 extern la::avdecc::bindings::HandleManager<la::avdecc::protocol::ProtocolInterface::UniquePointer> s_ProtocolInterfaceManager;
 
 LA_AVDECC_BINDINGS_C_API avdecc_protocol_interface_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_ProtocolInterface_sendAemAecpCommand_block(LA_AVDECC_PROTOCOL_INTERFACE_HANDLE const handle, avdecc_protocol_aem_aecpdu_cp const aecpdu, avdecc_protocol_interfaces_send_aem_aecp_command_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -63,7 +63,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_protocol_interface_error_t LA_AVDECC_BINDINGS_C_
 
 LA_AVDECC_BINDINGS_C_API avdecc_protocol_interface_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_ProtocolInterface_sendMvuAecpCommand_block(LA_AVDECC_PROTOCOL_INTERFACE_HANDLE const handle, avdecc_protocol_mvu_aecpdu_cp const aecpdu, avdecc_protocol_interfaces_send_mvu_aecp_command_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{
@@ -105,7 +105,7 @@ LA_AVDECC_BINDINGS_C_API avdecc_protocol_interface_error_t LA_AVDECC_BINDINGS_C_
 
 LA_AVDECC_BINDINGS_C_API avdecc_protocol_interface_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_ProtocolInterface_sendAcmpCommand_block(LA_AVDECC_PROTOCOL_INTERFACE_HANDLE const handle, avdecc_protocol_acmpdu_cp const acmpdu, avdecc_protocol_interfaces_send_acmp_command_block const onResultBlock)
 {
-	auto onResult = CxxAVDECC::Block(onResultBlock);
+	auto onResult = CAVDECC::Block(onResultBlock);
 
 	try
 	{

@@ -17,7 +17,7 @@
  * along with AVDECCSwift.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-module CxxAVDECC {
-    umbrella header "CxxAVDECC.h"
+module CAVDECC {
+    umbrella header "CAVDECC.h"
     requires blocks
 }

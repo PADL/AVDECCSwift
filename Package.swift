@@ -65,7 +65,7 @@ let package = Package(
             path: "avdecc.artifactbundle.zip"
         ),
         .target(
-            name: "CxxAVDECC",
+            name: "CAVDECC",
             dependencies: [
                 "avdecc",
             ],
@@ -87,7 +87,6 @@ let package = Package(
                 .headerSearchPath("avdecc/externals/nih/include"),
             ],
             swiftSettings: [
-                .interoperabilityMode(.Cxx),
                 .enableExperimentalFeature("StrictConcurrency"),
             ],
             linkerSettings: [
@@ -100,18 +99,17 @@ let package = Package(
         .target(
             name: "AVDECCSwift",
             dependencies: [
-                "CxxAVDECC",
+                "CAVDECC",
             ],
             cSettings: [
-                .headerSearchPath("../CxxAVDECC/avdecc/include"),
-                .headerSearchPath("../CxxAVDECC/avdecc/externals/nih/include"),
+                .headerSearchPath("../CAVDECC/avdecc/include"),
+                .headerSearchPath("../CAVDECC/avdecc/externals/nih/include"),
             ],
             cxxSettings: [
-                .headerSearchPath("../CxxAVDECC/avdecc/include"),
-                .headerSearchPath("../CxxAVDECC/avdecc/externals/nih/include"),
+                .headerSearchPath("../CAVDECC/avdecc/include"),
+                .headerSearchPath("../CAVDECC/avdecc/externals/nih/include"),
             ],
             swiftSettings: [
-                .interoperabilityMode(.Cxx),
                 .enableExperimentalFeature("StrictConcurrency"),
             ]
         ),
@@ -121,8 +119,7 @@ let package = Package(
                 "AVDECCSwift",
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             ],
-            path: "Examples/Discovery",
-            swiftSettings: [.interoperabilityMode(.Cxx)]
+            path: "Examples/Discovery"
         ),
     ],
     cLanguageStandard: .c17,

@@ -5,7 +5,7 @@ set -e
 #git submodule init
 #git submodule update
 
-#pushd Sources/CxxAVDECC/avdecc
+#pushd Sources/CAVDECC/avdecc
 #git submodule init
 #git submodule update
 #popd
@@ -42,7 +42,7 @@ BUILDCFLAGS="-I${CLANGDIR}/usr/lib/swift -fblocks"
 BUILDLDFLAGS_SHARED="-L${CLANGDIR}/usr/lib/swift/${PLATFORM} -Wl,-rpath,${CLANGDIR}/usr/lib/swift/${PLATFORM} -lBlocksRuntime"
 BUILDLDFLAGS_STATIC="-Wl,-L${CLANGDIR}/usr/lib/swift_static/${PLATFORM} -lBlocksRuntime"
 
-pushd Sources/CxxAVDECC/avdecc
+pushd Sources/CAVDECC/avdecc
 echo "Build directory is $BUILDDIR with flags $BUILDFLAGS"
 #rm -rf $BUILDDIR
 ./gen_cmake.sh ${ARCHS} \

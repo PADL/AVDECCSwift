@@ -19,7 +19,7 @@
 
 import AsyncAlgorithms
 import AVDECCSwift
-import CxxAVDECC
+import CAVDECC
 import Foundation
 
 @main
