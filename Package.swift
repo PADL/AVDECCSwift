@@ -126,7 +126,6 @@ let package = Package(
             name: "Discovery",
             dependencies: [
                 "AVDECCSwift",
-                "CxxAVDECC",
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             ],
             path: "Examples/Discovery",
