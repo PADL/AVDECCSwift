@@ -302,7 +302,7 @@ public extension avdecc_entity_common_information_t {
             avdecc_entity_controller_capabilities_e(rawValue: UInt32(controller_capabilities))
         }
         set {
-            self.controller_capabilities = UInt16(newValue.rawValue)
+            controller_capabilities = UInt16(newValue.rawValue)
         }
     }
 }
