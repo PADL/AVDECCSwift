@@ -28,7 +28,7 @@ let AvdeccArtifactRoot = ".build/artifacts/avdeccswift/\(AvdeccBuildDir)"
 let AvdeccCxxLibPath = "\(AvdeccArtifactRoot)/src"
 let AvdeccCLibPath = "\(AvdeccCxxLibPath)/bindings/c"
 let AvdeccCxxControllerLibPath = "\(AvdeccCxxLibPath)/controller"
-let AvdeccAltLibPath = "/opt/inferno/lib"
+let AvdeccAltLibPath = "/usr/local/lib"
 
 let AvdeccUnsafeLinkerFlags: [String] = [
     "-Xlinker", "-L", "-Xlinker", AvdeccCxxLibPath,
@@ -78,16 +78,16 @@ let package = Package(
                 "avdecc/tests",
             ],
             cSettings: [
-                .headerSearchPath("avdecc/include"),
-                .headerSearchPath("avdecc/include/la"),
-                .headerSearchPath("avdecc/include/la/avdecc"),
-                .headerSearchPath("avdecc/externals/nih/include"),
+                .headerSearchPath("../CxxAVDECC/avdecc/include"),
+                .headerSearchPath("../CxxAVDECC/avdecc/include/la"),
+                .headerSearchPath("../CxxAVDECC/avdecc/include/la/avdecc"),
+                .headerSearchPath("../CxxAVDECC/avdecc/externals/nih/include"),
             ],
             cxxSettings: [
-                .headerSearchPath("avdecc/include"),
-                .headerSearchPath("avdecc/include/la"),
-                .headerSearchPath("avdecc/include/la/avdecc"),
-                .headerSearchPath("avdecc/externals/nih/include"),
+                .headerSearchPath("../CxxAVDECC/avdecc/include"),
+                .headerSearchPath("../CxxAVDECC/avdecc/include/la"),
+                .headerSearchPath("../CxxAVDECC/avdecc/include/la/avdecc"),
+                .headerSearchPath("../CxxAVDECC/avdecc/externals/nih/include"),
             ],
             swiftSettings: [
                 .interoperabilityMode(.Cxx),
