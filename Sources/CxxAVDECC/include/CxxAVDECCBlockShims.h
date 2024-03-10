@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "../avdecc/include/la/avdecc/avdecc.h"
+#include "la/avdecc/avdecc.h"
 
 /* Enumeration and Control Protocol (AECP) AEM handlers */
 typedef void(LA_AVDECC_BINDINGS_C_CALL_CONVENTION ^

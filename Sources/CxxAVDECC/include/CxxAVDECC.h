@@ -19,10 +19,10 @@
 
 #pragma once
 
-#include "../avdecc/include/la/avdecc/avdecc.h"
+#include "la/avdecc/avdecc.h"
 
 #ifdef __cplusplus
-#include "../avdecc/include/la/avdecc/avdecc.hpp"
+#include "la/avdecc/avdecc.hpp"
 #endif
 
 #include "CxxAVDECCBlockShims.h"
