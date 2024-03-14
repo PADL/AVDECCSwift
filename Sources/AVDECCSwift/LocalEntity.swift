@@ -859,7 +859,7 @@ public final class LocalEntity {
     public func setAudioUnitSamplingRate(
         id entityID: UniqueIdentifier,
         audioUnitIndex: EntityModelDescriptorType,
-        samplingRate: avdecc_entity_model_sampling_rate_t
+        samplingRate: EntityModelSamplingRate
     ) async throws {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setAudioUnitSamplingRate_block(
@@ -876,7 +876,7 @@ public final class LocalEntity {
     public func getAudioUnitSamplingRate(
         id entityID: UniqueIdentifier,
         audioUnitIndex: EntityModelDescriptorType
-    ) async throws -> avdecc_entity_model_sampling_rate_t {
+    ) async throws -> EntityModelSamplingRate {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getAudioUnitSamplingRate_block(
                 handle,
@@ -891,7 +891,7 @@ public final class LocalEntity {
     public func setVideoClusterSamplingRate(
         id entityID: UniqueIdentifier,
         videoClusterIndex: EntityModelDescriptorType,
-        samplingRate: avdecc_entity_model_sampling_rate_t
+        samplingRate: EntityModelSamplingRate
     ) async throws {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setVideoClusterSamplingRate_block(
@@ -908,7 +908,7 @@ public final class LocalEntity {
     public func getVideoClusterSamplingRate(
         id entityID: UniqueIdentifier,
         videoClusterIndex: EntityModelDescriptorType
-    ) async throws -> avdecc_entity_model_sampling_rate_t {
+    ) async throws -> EntityModelSamplingRate {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getVideoClusterSamplingRate_block(
                 handle,
@@ -923,7 +923,7 @@ public final class LocalEntity {
     public func setSensorClusterSamplingRate(
         id entityID: UniqueIdentifier,
         sensorClusterIndex: EntityModelDescriptorType,
-        samplingRate: avdecc_entity_model_sampling_rate_t
+        samplingRate: EntityModelSamplingRate
     ) async throws {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setSensorClusterSamplingRate_block(
@@ -940,7 +940,7 @@ public final class LocalEntity {
     public func getSensorClusterSamplingRate(
         id entityID: UniqueIdentifier,
         sensorClusterIndex: EntityModelDescriptorType
-    ) async throws -> avdecc_entity_model_sampling_rate_t {
+    ) async throws -> EntityModelSamplingRate {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getSensorClusterSamplingRate_block(
                 handle,
