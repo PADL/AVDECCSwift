@@ -419,3 +419,65 @@ public extension String {
         })
     }
 }
+
+public enum AemCommandType: UInt16 {
+    case lockEntity = 0x0001
+    case entityAvailable = 0x0002
+    case controllerAvailable = 0x0003
+    case readDescriptor = 0x0004
+    case writeDescriptor = 0x0005
+    case setConfiguration = 0x0006
+    case getConfiguration = 0x0007
+    case setStreamFormat = 0x0008
+    case getStreamFormat = 0x0009
+    case setVideoFormat = 0x000A
+    case getVideoFormat = 0x000B
+    case setSensorFormat = 0x000C
+    case getSensorFormat = 0x000D
+    case setStreamInfo = 0x000E
+    case getStreamInfo = 0x000F
+    case setName = 0x0010
+    case getName = 0x0011
+    case setAssociationID = 0x0012
+    case getAssociationID = 0x0013
+    case setSamplingRate = 0x0014
+    case getSamplingRate = 0x0015
+    case setClockSource = 0x0016
+    case getClockSource = 0x0017
+    case setControl = 0x0018
+    case getControl = 0x0019
+    case incrementControl = 0x001A
+    case decrementControl = 0x001B
+    case setSignalSelector = 0x001C
+    case getSignalSelector = 0x001D
+    case setMixer = 0x001E
+    case getMixer = 0x001F
+    case setMatrix = 0x0020
+    case getMatrix = 0x0021
+    case startStreaming = 0x0022
+    case stopStreaming = 0x0023
+    case registerUnsolicitedNotification = 0x0024
+    case deregisterUnsolicitedNotification = 0x0025
+    case identifyNotification = 0x0026
+    case getAvbInfo = 0x0027
+    case getAsPath = 0x0028
+    case getCounters = 0x0029
+    case reboot = 0x002A
+    case getAudioMap = 0x002B
+    case addAudioMappings = 0x002C
+    case removeAudioMappings = 0x002D
+    case getVideoMap = 0x002E
+    case addVideoMappings = 0x002F
+    case removeVideoMappings = 0x0030
+    case getSensorMap = 0x0031
+    case addSensorMappings = 0x0032
+    case removeSensorMappings = 0x0033
+    case startOperation = 0x0034
+    case abortOperation = 0x0035
+    case operationStatus = 0x0036
+    case setMemoryObjectLength = 0x0047
+    case getMemoryObjectLength = 0x0048
+    case setStreamBackup = 0x0049
+    case getStreamBackup = 0x004A
+    case invalidCommandType = 0xFFFF
+}
