@@ -36,12 +36,20 @@ public struct UniqueIdentifier: CustomStringConvertible, Equatable, Hashable, Se
         eui = 0xFFFF_FFFF_FFFF_FFFF
     }
 
-    init(_ id: avdecc_unique_identifier_t) {
+    public init(_ id: avdecc_unique_identifier_t) {
         eui = id
     }
 
     public var description: String {
         String(format: "0x%llx", id)
+    }
+}
+
+extension UniqueIdentifier: AvdeccCBridgeable {
+    typealias AvdeccCType = avdecc_unique_identifier_t
+
+    func bridgeToAvdeccCType() -> AvdeccCType {
+        id
     }
 }
 
