@@ -589,6 +589,8 @@ public struct EntityModelClockDomainDescriptor: Sendable {
 }
 
 public struct EntityModelStreamIdentification: Sendable, AvdeccCBridgeable {
+    typealias AvdeccCType = avdecc_entity_model_stream_identification_t
+
     private let id: avdecc_entity_model_stream_identification_t
 
     init(_ id: avdecc_entity_model_stream_identification_t) {
@@ -611,6 +613,8 @@ public struct EntityModelStreamIdentification: Sendable, AvdeccCBridgeable {
 }
 
 public struct EntityModelStreamInfo: Sendable, AvdeccCBridgeable {
+    typealias AvdeccCType = avdecc_entity_model_stream_info_t
+
     public let descriptor: avdecc_entity_model_stream_info_t
 
     init(_ descriptor: avdecc_entity_model_stream_info_t) {
