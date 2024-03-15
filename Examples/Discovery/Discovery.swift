@@ -76,6 +76,9 @@ public actor Discovery: ProtocolInterfaceObserver {
         for await entity in entitiesChannel {
             let entityDescriptor = try await localEntity.readEntityDescriptor(id: entity.entityID)
             debugPrint("read entity descriptor: \(entityDescriptor) for entity \(entity.entityID)")
+
+            let avbInfo = try await localEntity.getAvbInfo(id: entity.entityID, avbInterfaceIndex: 0)
+            debugPrint("read AVB info: \(avbInfo)")
         }
 
         try? protocolInterface.releaseDynamicEID(commonInformation.entityID)
