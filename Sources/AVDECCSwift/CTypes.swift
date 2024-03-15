@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023, PADL Software Pty Ltd
+ * Copyright (C) 2023-2024, PADL Software Pty Ltd
  *
  * This file is part of AVDECCSwift.
  *
@@ -17,7 +17,8 @@
  * along with AVDECCSwift.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import CAVDECC
+@preconcurrency
+import CAVDECC // because we can't make these types Sendable
 import Foundation // FIXME: (
 
 public typealias EntityModelLocalizedStringReference =
@@ -42,6 +43,26 @@ public struct UniqueIdentifier: CustomStringConvertible, Equatable, Hashable, Se
 
     public var description: String {
         String(format: "0x%llx", id)
+    }
+}
+
+public struct EntityModelStreamFormat: CustomStringConvertible, Equatable, Hashable, Sendable {
+    var _format: avdecc_entity_model_stream_format_t
+
+    public var format: UInt64 {
+        _format
+    }
+
+    public init() {
+        _format = 0
+    }
+
+    public init(_ format: avdecc_entity_model_stream_format_t) {
+        _format = format
+    }
+
+    public var description: String {
+        String(format: "0x%llx", _format)
     }
 }
 
@@ -230,7 +251,316 @@ public struct EntityModelAudioUnitDescriptor: Sendable {
     public var currentSamplingRate: EntityModelSamplingRate { descriptor.current_sampling_rate }
 }
 
-public typealias EntityModelClockSourceDescriptor = avdecc_entity_model_clock_source_descriptor_t
+public struct EntityModelJackDescriptor: Sendable {
+    private let descriptor: avdecc_entity_model_jack_descriptor_t
+
+    init(_ descriptor: avdecc_entity_model_jack_descriptor_t) {
+        self.descriptor = descriptor
+    }
+
+    public var objectName: String { descriptor.objectName }
+    public var localizedDescription: EntityModelLocalizedStringReference {
+        descriptor.localized_description
+    }
+
+    public var jackFlags: avdecc_entity_jack_flags_t { descriptor.jack_flags }
+    public var jackType: avdecc_entity_model_jack_type_t { descriptor.jack_type }
+    public var numberOfControls: UInt16 { descriptor.number_of_controls }
+    public var baseControl: EntityModelDescriptorIndex { descriptor.base_control }
+}
+
+public struct EntityModelStreamDescriptor: Sendable {
+    private let descriptor: avdecc_entity_model_stream_descriptor_t
+
+    public let formats: [EntityModelStreamFormat]
+
+    init(_ descriptor: avdecc_entity_model_stream_descriptor_t) {
+        formats = nullTerminatedArrayToSwiftArray(descriptor.formats)
+            .map { EntityModelStreamFormat($0) }
+        var descriptor = descriptor
+        descriptor.formats = nil
+        self.descriptor = descriptor
+    }
+
+    public var objectName: String { descriptor.objectName }
+    public var localizedDescription: EntityModelLocalizedStringReference {
+        descriptor.localized_description
+    }
+
+    public var clockDomainIndex: EntityModelDescriptorIndex { descriptor.clock_domain_index }
+    public var streamFlags: avdecc_entity_stream_flags_t { descriptor.stream_flags }
+
+    public var currentFormat: EntityModelStreamFormat {
+        EntityModelStreamFormat(descriptor.current_format)
+    }
+
+    public var avbInterfaceIndex: EntityModelDescriptorIndex { descriptor.avb_interface_index }
+}
+
+public struct EntityModelAvbInterfaceDescriptor: Sendable {
+    private let descriptor: avdecc_entity_model_avb_interface_descriptor_t
+
+    init(_ descriptor: avdecc_entity_model_avb_interface_descriptor_t) {
+        self.descriptor = descriptor
+    }
+
+    public var objectName: String { descriptor.objectName }
+    public var localizedDescription: EntityModelLocalizedStringReference {
+        descriptor.localized_description
+    }
+
+    public var macAddress: (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8) { descriptor.mac_address }
+    public var interfaceFlags: avdecc_entity_avb_interface_flags_t { descriptor.interface_flags }
+    public var clockIdentity: UniqueIdentifier { UniqueIdentifier(descriptor.clock_identity) }
+    public var priority1: UInt8 { descriptor.priority1 }
+    public var clockClass: UInt8 { descriptor.clock_class }
+    public var offsetScaledLogVariance: UInt16 { descriptor.offset_scaled_log_variance }
+    public var clockAccuracy: UInt8 { descriptor.clock_accuracy }
+    public var priority2: UInt8 { descriptor.priority2 }
+    public var domainNumber: UInt8 { descriptor.domain_number }
+    public var logSyncInterval: UInt8 { descriptor.log_sync_interval }
+    public var logAnnounceInterval: UInt8 { descriptor.log_announce_interval }
+    public var logPDelayInterval: UInt8 { descriptor.log_p_delay_interval }
+    public var portNumber: UInt16 { descriptor.port_number }
+}
+
+public struct EntityModelClockSourceDescriptor: Sendable {
+    private let descriptor: avdecc_entity_model_clock_source_descriptor_t
+
+    init(_ descriptor: avdecc_entity_model_clock_source_descriptor_t) {
+        self.descriptor = descriptor
+    }
+
+    public var objectName: String { descriptor.objectName }
+    public var localizedDescription: EntityModelLocalizedStringReference {
+        descriptor.localized_description
+    }
+
+    public var clockSourceFlags: avdecc_entity_clock_source_flags_t { descriptor.clock_source_flags
+    }
+
+    public var clockSourceType: avdecc_entity_model_clock_source_type_t {
+        descriptor.clock_source_type
+    }
+
+    public var clockSourceIdentifier: UniqueIdentifier {
+        UniqueIdentifier(descriptor.clock_source_identifier)
+    }
+
+    public var clockSourceLocationType: EntityModelDescriptorType {
+        descriptor.clock_source_location_type
+    }
+
+    public var clockSourceLocationIndex: EntityModelDescriptorIndex {
+        descriptor.clock_source_location_index
+    }
+}
+
+public struct EntityModelMemoryObjectDescriptor: Sendable {
+    private let descriptor: avdecc_entity_model_memory_object_descriptor_t
+
+    init(_ descriptor: avdecc_entity_model_memory_object_descriptor_t) {
+        self.descriptor = descriptor
+    }
+
+    public var objectName: String { descriptor.objectName }
+    public var localizedDescription: EntityModelLocalizedStringReference {
+        descriptor.localized_description
+    }
+
+    public var memoryObjectType: avdecc_entity_model_memory_object_type_t {
+        descriptor.memory_object_type
+    }
+
+    public var targetDescriptorType: EntityModelDescriptorType {
+        descriptor.target_descriptor_type
+    }
+
+    public var targetDescriptorIndex: EntityModelDescriptorIndex {
+        descriptor.target_descriptor_index
+    }
+
+    public var startAddress: UInt64 { descriptor.start_address }
+    public var maximumLength: UInt64 { descriptor.maximum_length }
+    public var length: UInt64 { descriptor.length }
+}
+
+public struct EntityModelLocaleDescriptor: Sendable {
+    private let descriptor: avdecc_entity_model_locale_descriptor_t
+
+    init(_ descriptor: avdecc_entity_model_locale_descriptor_t) {
+        self.descriptor = descriptor
+    }
+
+    public var localeID: String {
+        String(avdeccFixedString: descriptor.locale_id)
+    }
+
+    public var numberOfStringDescriptors: UInt16 {
+        descriptor.number_of_string_descriptors
+    }
+
+    public var baseStringDescriptorIndex: EntityModelDescriptorIndex {
+        descriptor.base_string_descriptor_index
+    }
+}
+
+public struct EntityModelStringsDescriptor: Sendable {
+    public let strings: [String]
+
+    init(_ descriptor: avdecc_entity_model_strings_descriptor_t) {
+        strings = withUnsafePointer(to: descriptor.strings) { pointer in
+            let start = pointer.propertyBasePointer(to: \.0)!
+            return Array(UnsafeBufferPointer(
+                start: start,
+                count: MemoryLayout.size(ofValue: pointer)
+            )).map { String(avdeccFixedString: $0) }
+        }
+    }
+}
+
+public struct EntityModelStreamPortDescriptor: Sendable {
+    private let descriptor: avdecc_entity_model_stream_port_descriptor_t
+
+    init(_ descriptor: avdecc_entity_model_stream_port_descriptor_t) {
+        self.descriptor = descriptor
+    }
+
+    public var clockDomainIndex: EntityModelDescriptorIndex { descriptor.clock_domain_index }
+    public var portFlags: avdecc_entity_port_flags_t { descriptor.port_flags }
+
+    public var numberOfControls: UInt16 { descriptor.number_of_controls }
+    public var baseControl: EntityModelDescriptorIndex { descriptor.base_control }
+
+    public var numberOfClusters: UInt16 { descriptor.number_of_clusters }
+    public var baseCluster: EntityModelDescriptorIndex { descriptor.base_cluster }
+
+    public var numberOfMaps: UInt16 { descriptor.number_of_maps }
+    public var baseMap: EntityModelDescriptorIndex { descriptor.base_map }
+}
+
+public struct EntityModelExternalPortDescriptor: Sendable {
+    private let descriptor: avdecc_entity_model_external_port_descriptor_t
+
+    init(_ descriptor: avdecc_entity_model_external_port_descriptor_t) {
+        self.descriptor = descriptor
+    }
+
+    public var clockDomainIndex: EntityModelDescriptorIndex { descriptor.clock_domain_index }
+    public var portFlags: avdecc_entity_port_flags_t { descriptor.port_flags }
+
+    public var numberOfControls: UInt16 { descriptor.number_of_controls }
+    public var baseControl: EntityModelDescriptorIndex { descriptor.base_control }
+
+    public var signalType: EntityModelDescriptorType { descriptor.signal_type }
+    public var signalIndex: EntityModelDescriptorIndex { descriptor.signal_index }
+
+    public var signalOutput: UInt16 { descriptor.signal_output }
+    public var blockLatency: UInt32 { descriptor.block_latency }
+
+    public var jackIndex: EntityModelDescriptorIndex { descriptor.jack_index }
+}
+
+public struct EntityModelInternalPortDescriptor: Sendable {
+    private let descriptor: avdecc_entity_model_internal_port_descriptor_t
+
+    init(_ descriptor: avdecc_entity_model_internal_port_descriptor_t) {
+        self.descriptor = descriptor
+    }
+
+    public var clockDomainIndex: EntityModelDescriptorIndex { descriptor.clock_domain_index }
+    public var portFlags: avdecc_entity_port_flags_t { descriptor.port_flags }
+
+    public var numberOfControls: UInt16 { descriptor.number_of_controls }
+    public var baseControl: EntityModelDescriptorIndex { descriptor.base_control }
+
+    public var signalType: EntityModelDescriptorType { descriptor.signal_type }
+    public var signalIndex: EntityModelDescriptorIndex { descriptor.signal_index }
+
+    public var signalOutput: UInt16 { descriptor.signal_output }
+    public var blockLatency: UInt32 { descriptor.block_latency }
+
+    public var internalIndex: EntityModelDescriptorIndex { descriptor.internal_index }
+}
+
+public struct EntityModelAudioClusterDescriptor: Sendable {
+    private let descriptor: avdecc_entity_model_audio_cluster_descriptor_t
+
+    init(_ descriptor: avdecc_entity_model_audio_cluster_descriptor_t) {
+        self.descriptor = descriptor
+    }
+
+    public var objectName: String { descriptor.objectName }
+    public var localizedDescription: EntityModelLocalizedStringReference {
+        descriptor.localized_description
+    }
+
+    public var signalType: EntityModelDescriptorType { descriptor.signal_type }
+    public var signalIndex: EntityModelDescriptorIndex { descriptor.signal_index }
+
+    public var signalOutput: UInt16 { descriptor.signal_output }
+    public var pathLatency: UInt32 { descriptor.path_latency }
+    public var blockLatency: UInt32 { descriptor.block_latency }
+    public var channelCount: UInt16 { descriptor.channel_count }
+    public var format: UInt8 { descriptor.format }
+}
+
+public struct EntityModelAudioMapping: Sendable, AvdeccCBridgeable {
+    typealias AvdeccCType = avdecc_entity_model_audio_mapping_t
+
+    private let mapping: avdecc_entity_model_audio_mapping_t
+
+    public init(
+        streamIndex: EntityModelDescriptorIndex,
+        streamChannel: UInt16,
+        clusterOffset: EntityModelDescriptorIndex,
+        clusterChannel: UInt16
+    ) {
+        mapping = avdecc_entity_model_audio_mapping_t(
+            stream_index: streamIndex,
+            stream_channel: streamChannel,
+            cluster_offset: clusterOffset,
+            cluster_channel: clusterChannel
+        )
+    }
+
+    init(_ mapping: avdecc_entity_model_audio_mapping_t) {
+        self.mapping = mapping
+    }
+
+    func bridgeToAvdeccCType() -> AvdeccCType {
+        mapping
+    }
+
+    public var streamIndex: EntityModelDescriptorIndex { mapping.stream_index }
+    public var streamChannel: UInt16 { mapping.stream_channel }
+    public var clusterOffset: EntityModelDescriptorIndex { mapping.cluster_offset }
+    public var clusterChannel: UInt16 { mapping.cluster_channel }
+}
+
+public struct EntityModelAudioMapDescriptor: Sendable {
+    public let mappings: [EntityModelAudioMapping]
+
+    public init(_ mappings: [EntityModelAudioMapping]) {
+        self.mappings = mappings
+    }
+
+    init(_ descriptor: avdecc_entity_model_audio_map_descriptor_t) {
+        mappings = nullTerminatedArrayToSwiftArray(descriptor.mappings)
+            .map { EntityModelAudioMapping($0) }
+    }
+
+    init(
+        numberOfMaps: EntityModelDescriptorIndex,
+        _ mappings: UnsafePointer<avdecc_entity_model_audio_mapping_cp?>?
+    ) {
+        self.mappings = Array(UnsafeBufferPointer(start: mappings, count: Int(numberOfMaps)))
+            .compactMap { map in
+                guard let map else { return nil }
+                return EntityModelAudioMapping(map.pointee)
+            }
+    }
+}
 
 public struct EntityModelClockDomainDescriptor: Sendable {
     private let descriptor: avdecc_entity_model_clock_domain_descriptor_t
@@ -258,7 +588,83 @@ public struct EntityModelClockDomainDescriptor: Sendable {
     }
 }
 
-public typealias EntityModelMsrpMapping = avdecc_entity_model_msrp_mapping_t
+public struct EntityModelStreamIdentification: Sendable, AvdeccCBridgeable {
+    private let id: avdecc_entity_model_stream_identification_t
+
+    init(_ id: avdecc_entity_model_stream_identification_t) {
+        self.id = id
+    }
+
+    public init(entityID: UniqueIdentifier, streamIndex: EntityModelDescriptorIndex) {
+        id = avdecc_entity_model_stream_identification_t(
+            entity_id: entityID.bridgeToAvdeccCType(),
+            stream_index: streamIndex
+        )
+    }
+
+    func bridgeToAvdeccCType() -> AvdeccCType {
+        id
+    }
+
+    public var entityID: UniqueIdentifier { UniqueIdentifier(id.entity_id) }
+    public var streamIndex: EntityModelDescriptorIndex { id.stream_index }
+}
+
+public struct EntityModelStreamInfo: Sendable, AvdeccCBridgeable {
+    public let descriptor: avdecc_entity_model_stream_info_t
+
+    init(_ descriptor: avdecc_entity_model_stream_info_t) {
+        self.descriptor = descriptor
+    }
+
+    func bridgeToAvdeccCType() -> AvdeccCType {
+        descriptor
+    }
+
+    public var streamInfoFlags: UInt32 { descriptor.stream_info_flags }
+    public var streamFormat: EntityModelStreamFormat {
+        EntityModelStreamFormat(descriptor.stream_format)
+    }
+
+    public var streamID: UniqueIdentifier { UniqueIdentifier(descriptor.stream_id) }
+    public var msrpAccumulatedLatency: UInt32 { descriptor.msrp_accumulated_latency }
+    public var streamDestinationMacAddress: (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8) {
+        descriptor.stream_dest_mac
+    }
+
+    public var msrpFailureCode: UInt8 { descriptor.msrp_failure_code }
+    public var msrpFailureBridgeID: UInt64 { descriptor.msrp_failure_bridge_id }
+    public var streamVlanID: UInt16 { descriptor.stream_vlan_id }
+
+    // MILAN additions
+
+    public var streamInfoFlagsEx: UInt32? {
+        guard descriptor.stream_info_flags_ex_valid != 0 else { return nil }
+        return descriptor.stream_info_flags_ex
+    }
+
+    public var probingStatus: UInt8? {
+        guard descriptor.probing_status_valid != 0 else { return nil }
+        return descriptor.probing_status
+    }
+
+    public var acmpStatus: UInt8? {
+        guard descriptor.acmp_status_valid != 0 else { return nil }
+        return descriptor.acmp_status
+    }
+}
+
+public struct EntityModelMsrpMapping: Sendable {
+    private let descriptor: avdecc_entity_model_msrp_mapping_t
+
+    init(_ descriptor: avdecc_entity_model_msrp_mapping_t) {
+        self.descriptor = descriptor
+    }
+
+    public var trafficClass: UInt8 { descriptor.traffic_class }
+    public var priority: UInt8 { descriptor.priority }
+    public var vlanID: UInt16 { descriptor.vlan_id }
+}
 
 public struct EntityModelAvbInfo: Sendable {
     private let info: avdecc_entity_model_avb_info_t
@@ -266,8 +672,7 @@ public struct EntityModelAvbInfo: Sendable {
     public let mappings: [EntityModelMsrpMapping]
 
     init(_ info: avdecc_entity_model_avb_info_t) {
-        mappings = nullTerminatedArrayToSwiftArray(info.mappings)
-
+        mappings = nullTerminatedArrayToSwiftArray(info.mappings).map { EntityModelMsrpMapping($0) }
         var info = info
         info.mappings = nil
         self.info = info
@@ -290,7 +695,17 @@ public struct EntityModelAvbInfo: Sendable {
     }
 }
 
-public typealias EntityModelMilanInfo = avdecc_entity_model_milan_info_t
+public struct EntityModelMilanInfo: Sendable {
+    public let info: avdecc_entity_model_milan_info_t
+
+    init(_ info: avdecc_entity_model_milan_info_t) {
+        self.info = info
+    }
+
+    public var protocolVersion: UInt32 { info.protocol_version }
+    public var featuresFlags: avdecc_entity_milan_info_features_flags_t { info.features_flags }
+    public var certificationVersion: UInt32 { info.certification_version }
+}
 
 public typealias EntityCommonInformation = avdecc_entity_common_information_t
 

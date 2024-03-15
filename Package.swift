@@ -87,7 +87,6 @@ let package = Package(
                 .headerSearchPath("avdecc/externals/nih/include"),
             ],
             swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency"),
             ],
             linkerSettings: [
                 .linkedLibrary("la_avdecc_c-d"),
@@ -110,7 +109,6 @@ let package = Package(
                 .headerSearchPath("../CAVDECC/avdecc/externals/nih/include"),
             ],
             swiftSettings: [
-                .enableExperimentalFeature("StrictConcurrency"),
             ]
         ),
         .executableTarget(

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023, PADL Software Pty Ltd
+ * Copyright (C) 2023-2024, PADL Software Pty Ltd
  *
  * This file is part of AVDECCSwift.
  *
@@ -195,7 +195,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_acquireEntity_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 isPersistent ? 1 : 0,
                 descriptorType,
                 descriptorIndex
@@ -213,7 +213,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_releaseEntity_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 descriptorType,
                 descriptorIndex
             ) { _, _, status, owningEntity, _, _ in
@@ -230,7 +230,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_lockEntity_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 descriptorType,
                 descriptorIndex
             ) { _, _, status, lockingEntity, _, _ in
@@ -247,7 +247,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_unlockEntity_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 descriptorType,
                 descriptorIndex
             ) { _, _, status, lockingEntity, _, _ in
@@ -265,7 +265,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_registerUnsolicitedNotifications_block(
                 handle,
-                entityID.id
+                entityID.bridgeToAvdeccCType()
             ) { _, _, status in
                 continuation(
                     status,
@@ -281,7 +281,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_unregisterUnsolicitedNotifications_block(
                 handle,
-                entityID.id
+                entityID.bridgeToAvdeccCType()
             ) { _, _, status in
                 continuation(
                     status,
@@ -297,7 +297,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_readEntityDescriptor_block(
                 handle,
-                entityID.id
+                entityID.bridgeToAvdeccCType()
             ) { _, _, status, descriptor in
                 continuation(
                     status,
@@ -314,7 +314,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_readConfigurationDescriptor_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex
             ) { _, _, status, _, descriptor in
                 continuation(
@@ -334,7 +334,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_readAudioUnitDescriptor_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 audioUnitIndex
             ) { _, _, status, _, _, descriptor in
@@ -346,24 +346,365 @@ public final class LocalEntity {
         }
     }
 
-    // LA_AVDECC_LocalEntity_readStreamInputDescriptor
-    // LA_AVDECC_LocalEntity_readStreamOutputDescriptor
-    // LA_AVDECC_LocalEntity_readJackInputDescriptor
-    // LA_AVDECC_LocalEntity_readJackOutputDescriptor
-    // LA_AVDECC_LocalEntity_readAvbInterfaceDescriptor
-    // LA_AVDECC_LocalEntity_readClockSourceDescriptor
-    // LA_AVDECC_LocalEntity_readMemoryObjectDescriptor
-    // LA_AVDECC_LocalEntity_readLocaleDescriptor
-    // LA_AVDECC_LocalEntity_readStringsDescriptor
-    // LA_AVDECC_LocalEntity_readStreamPortInputDescriptor
-    // LA_AVDECC_LocalEntity_readStreamPortOutputDescriptor
-    // LA_AVDECC_LocalEntity_readExternalPortInputDescriptor
-    // LA_AVDECC_LocalEntity_readExternalPortOutputDescriptor
-    // LA_AVDECC_LocalEntity_readInternalPortInputDescriptor
-    // LA_AVDECC_LocalEntity_readInternalPortOutputDescriptor
-    // LA_AVDECC_LocalEntity_readAudioClusterDescriptor
-    // LA_AVDECC_LocalEntity_readAudioMapDescriptor
-    // LA_AVDECC_LocalEntity_readClockDomainDescriptor
+    public func readStreamInputDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        streamIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelStreamDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readStreamInputDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                streamIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelStreamDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readStreamOutputDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        streamIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelStreamDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readStreamOutputDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                streamIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelStreamDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readJackInputDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        jackIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelJackDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readJackInputDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                jackIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelJackDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readJackOutputDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        jackIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelJackDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readJackOutputDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                jackIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelJackDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readAvbInterfaceDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        avbInterfaceIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelAvbInterfaceDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readAvbInterfaceDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                avbInterfaceIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelAvbInterfaceDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readClockSourceDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        clockSourceIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelClockSourceDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readClockSourceDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                clockSourceIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelClockSourceDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readMemoryObjectDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        memoryObjectIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelMemoryObjectDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readMemoryObjectDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                memoryObjectIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelMemoryObjectDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readLocaleDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        localeIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelLocaleDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readLocaleDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                localeIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelLocaleDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readStringsDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        stringsIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelStringsDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readStringsDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                stringsIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelStringsDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readStreamPortInputDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        streamPortIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelStreamPortDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readStreamPortInputDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                streamPortIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelStreamPortDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readStreamPortOutputDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        streamPortIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelStreamPortDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readStreamPortOutputDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                streamPortIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelStreamPortDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readExternalPortInputDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        externalPortIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelExternalPortDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readExternalPortInputDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                externalPortIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelExternalPortDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readExternalPortOutputDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        externalPortIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelExternalPortDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readExternalPortOutputDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                externalPortIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelExternalPortDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readInternalPortInputDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        externalPortIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelInternalPortDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readInternalPortInputDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                externalPortIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelInternalPortDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readInternalPortOutputDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        externalPortIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelInternalPortDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readInternalPortOutputDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                externalPortIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelInternalPortDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readAudioClusterDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        audioClusterIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelAudioClusterDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readAudioClusterDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                audioClusterIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelAudioClusterDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readAudioMapDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        audioMapIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelAudioMapDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readAudioMapDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                audioMapIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelAudioMapDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
+
+    public func readClockDomainDescriptor(
+        id entityID: UniqueIdentifier,
+        configurationIndex: EntityModelDescriptorType,
+        clockDomainIndex: EntityModelDescriptorType
+    ) async throws -> EntityModelClockDomainDescriptor {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_readClockDomainDescriptor_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                configurationIndex,
+                clockDomainIndex
+            ) { _, _, status, _, _, descriptor in
+                continuation(
+                    status,
+                    descriptor != nil ? EntityModelClockDomainDescriptor(descriptor!.pointee) : nil
+                )
+            }
+        }
+    }
 
     public func setConfiguration(
         id entityID: UniqueIdentifier,
@@ -372,7 +713,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setConfiguration_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex
             ) { _, _, status, _ in
                 continuation(
@@ -389,7 +730,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getConfiguration_block(
                 handle,
-                entityID.id
+                entityID.bridgeToAvdeccCType()
             ) { _, _, status, index in
                 continuation(
                     status,
@@ -399,20 +740,317 @@ public final class LocalEntity {
         }
     }
 
-    // LA_AVDECC_LocalEntity_setStreamInputFormat
-    // LA_AVDECC_LocalEntity_getStreamInputFormat
-    // LA_AVDECC_LocalEntity_setStreamOutputFormat
-    // LA_AVDECC_LocalEntity_getStreamOutputFormat
-    // LA_AVDECC_LocalEntity_getStreamPortInputAudioMap
-    // LA_AVDECC_LocalEntity_getStreamPortOutputAudioMap
-    // LA_AVDECC_LocalEntity_addStreamPortInputAudioMappings
-    // LA_AVDECC_LocalEntity_addStreamPortOutputAudioMappings
-    // LA_AVDECC_LocalEntity_removeStreamPortInputAudioMappings
-    // LA_AVDECC_LocalEntity_removeStreamPortOutputAudioMappings
-    // LA_AVDECC_LocalEntity_setStreamInputInfo
-    // LA_AVDECC_LocalEntity_setStreamOutputInfo
-    // LA_AVDECC_LocalEntity_getStreamInputInfo
-    // LA_AVDECC_LocalEntity_getStreamOutputInfo
+    public func setStreamInputFormat(
+        id entityID: UniqueIdentifier,
+        streamIndex: EntityModelDescriptorIndex,
+        streamFormat: EntityModelStreamFormat
+    ) async throws {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_setStreamInputFormat_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                streamIndex,
+                streamFormat._format
+            ) { _, _, status, _, _ in
+                continuation(
+                    status,
+                    ()
+                )
+            }
+        }
+    }
+
+    public func getStreamInputFormat(
+        id entityID: UniqueIdentifier,
+        streamIndex: EntityModelDescriptorIndex
+    ) async throws -> EntityModelDescriptorIndex {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getStreamInputFormat_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                streamIndex
+            ) { _, _, status, _, format in
+                continuation(
+                    status,
+                    EntityModelDescriptorIndex(format)
+                )
+            }
+        }
+    }
+
+    public func setStreamOutputFormat(
+        id entityID: UniqueIdentifier,
+        streamIndex: EntityModelDescriptorIndex,
+        streamFormat: EntityModelStreamFormat
+    ) async throws {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_setStreamOutputFormat_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                streamIndex,
+                streamFormat._format
+            ) { _, _, status, _, _ in
+                continuation(
+                    status,
+                    ()
+                )
+            }
+        }
+    }
+
+    public func getStreamOutputFormat(
+        id entityID: UniqueIdentifier,
+        streamIndex: EntityModelDescriptorIndex
+    ) async throws -> EntityModelDescriptorIndex {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getStreamOutputFormat_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                streamIndex
+            ) { _, _, status, _, format in
+                continuation(
+                    status,
+                    EntityModelDescriptorIndex(format)
+                )
+            }
+        }
+    }
+
+    public func getStreamPortInputAudioMap(
+        id entityID: UniqueIdentifier,
+        streamPortIndex: EntityModelDescriptorIndex,
+        mapIndex: EntityModelDescriptorIndex
+    ) async throws -> [EntityModelAudioMapping] {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getStreamPortInputAudioMap_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                streamPortIndex,
+                mapIndex
+            ) { _, _, status, _, numberOfMaps, _, mappings in
+                continuation(
+                    status,
+                    EntityModelAudioMapDescriptor(numberOfMaps: numberOfMaps, mappings).mappings
+                )
+            }
+        }
+    }
+
+    public func getStreamPortOutputAudioMap(
+        id entityID: UniqueIdentifier,
+        streamPortIndex: EntityModelDescriptorIndex,
+        mapIndex: EntityModelDescriptorIndex
+    ) async throws -> [EntityModelAudioMapping] {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getStreamPortOutputAudioMap_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                streamPortIndex,
+                mapIndex
+            ) { _, _, status, _, numberOfMaps, _, mappings in
+                continuation(
+                    status,
+                    EntityModelAudioMapDescriptor(numberOfMaps: numberOfMaps, mappings).mappings
+                )
+            }
+        }
+    }
+
+    private func withStreamPortAudioMappings(
+        id entityID: UniqueIdentifier,
+        streamPortIndex: EntityModelDescriptorIndex,
+        mappings: [EntityModelAudioMapping],
+        _ block: (
+            _ handle: UnsafeMutableRawPointer,
+            _ entityID: avdecc_unique_identifier_t,
+            _ streamPortIndex: EntityModelDescriptorIndex,
+            _ mappings: UnsafePointer<avdecc_entity_model_audio_mapping_cp?>,
+            _ block: @escaping avdecc_local_entity_add_stream_port_input_audio_mappings_block
+        ) -> avdecc_local_entity_error_t
+    ) async throws {
+        var _mappings = mappings.map { $0.bridgeToAvdeccCType() }
+        var pointers = [avdecc_entity_model_audio_mapping_cp?]()
+
+        for i in 0..<_mappings.count {
+            withUnsafePointer(to: &_mappings[i]) {
+                pointers.append($0) // FIXME: escaping pointer
+            }
+        }
+
+        pointers.append(nil)
+
+        try await invokeHandler { handle, continuation in
+            block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                streamPortIndex,
+                pointers
+            ) { _, _, status, _, _ in
+                continuation(
+                    status,
+                    ()
+                )
+            }
+        }
+    }
+
+    public func addStreamPortInputAudioMappings(
+        id entityID: UniqueIdentifier,
+        streamPortIndex: EntityModelDescriptorIndex,
+        mappings: [EntityModelAudioMapping]
+    ) async throws {
+        try await withStreamPortAudioMappings(
+            id: entityID,
+            streamPortIndex: streamPortIndex,
+            mappings: mappings
+        ) { handle, entityID, streamPortIndex, mappings, block in
+            LA_AVDECC_LocalEntity_addStreamPortInputAudioMappings_block(
+                handle,
+                entityID,
+                streamPortIndex,
+                mappings,
+                block
+            )
+        }
+    }
+
+    public func addStreamPortOutputAudioMappings(
+        id entityID: UniqueIdentifier,
+        streamPortIndex: EntityModelDescriptorIndex,
+        mappings: [EntityModelAudioMapping]
+    ) async throws {
+        try await withStreamPortAudioMappings(
+            id: entityID,
+            streamPortIndex: streamPortIndex,
+            mappings: mappings
+        ) { handle, entityID, streamPortIndex, mappings, block in
+            LA_AVDECC_LocalEntity_addStreamPortOutputAudioMappings_block(
+                handle,
+                entityID,
+                streamPortIndex,
+                mappings,
+                block
+            )
+        }
+    }
+
+    public func removeStreamPortInputAudioMappings(
+        id entityID: UniqueIdentifier,
+        streamPortIndex: EntityModelDescriptorIndex,
+        mappings: [EntityModelAudioMapping]
+    ) async throws {
+        try await withStreamPortAudioMappings(
+            id: entityID,
+            streamPortIndex: streamPortIndex,
+            mappings: mappings
+        ) { handle, entityID, streamPortIndex, mappings, block in
+            LA_AVDECC_LocalEntity_removeStreamPortInputAudioMappings_block(
+                handle,
+                entityID,
+                streamPortIndex,
+                mappings,
+                block
+            )
+        }
+    }
+
+    public func removeStreamPortOutputAudioMappings(
+        id entityID: UniqueIdentifier,
+        streamPortIndex: EntityModelDescriptorIndex,
+        mappings: [EntityModelAudioMapping]
+    ) async throws {
+        try await withStreamPortAudioMappings(
+            id: entityID,
+            streamPortIndex: streamPortIndex,
+            mappings: mappings
+        ) { handle, entityID, streamPortIndex, mappings, block in
+            LA_AVDECC_LocalEntity_removeStreamPortOutputAudioMappings_block(
+                handle,
+                entityID,
+                streamPortIndex,
+                mappings,
+                block
+            )
+        }
+    }
+
+    public func setStreamInputInfo(
+        id entityID: UniqueIdentifier,
+        streamIndex: EntityModelDescriptorIndex,
+        streamInputInfo: EntityModelStreamInfo
+    ) async throws {
+        var streamInputInfo = streamInputInfo.bridgeToAvdeccCType()
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_setStreamInputInfo_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                streamIndex,
+                &streamInputInfo
+            ) { _, _, status, _, _ in
+                continuation(
+                    status,
+                    ()
+                )
+            }
+        }
+    }
+
+    public func setStreamOutputInfo(
+        id entityID: UniqueIdentifier,
+        streamIndex: EntityModelDescriptorIndex,
+        streamOutputInfo: EntityModelStreamInfo
+    ) async throws {
+        var streamOutputInfo = streamOutputInfo.bridgeToAvdeccCType()
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_setStreamOutputInfo_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                streamIndex,
+                &streamOutputInfo
+            ) { _, _, status, _, _ in
+                continuation(
+                    status,
+                    ()
+                )
+            }
+        }
+    }
+
+    public func getStreamInputInfo(
+        id entityID: UniqueIdentifier,
+        streamIndex: EntityModelDescriptorIndex
+    ) async throws -> EntityModelStreamInfo {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getStreamInputInfo_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                streamIndex
+            ) { _, _, status, _, streamInputInfo in
+                continuation(
+                    status,
+                    streamInputInfo != nil ? EntityModelStreamInfo(streamInputInfo!) : nil
+                )
+            }
+        }
+    }
+
+    public func getStreamOutputInfo(
+        id entityID: UniqueIdentifier,
+        streamIndex: EntityModelDescriptorIndex
+    ) async throws -> EntityModelStreamInfo {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getStreamOutputInfo_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                streamIndex
+            ) { _, _, status, _, streamOutputInfo in
+                continuation(
+                    status,
+                    streamOutputInfo != nil ? EntityModelStreamInfo(streamOutputInfo!) : nil
+                )
+            }
+        }
+    }
 
     public func setEntityName(
         id entityID: UniqueIdentifier,
@@ -421,7 +1059,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setEntityName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 entityName
             ) { _, _, status, _ in
                 continuation(
@@ -438,7 +1076,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getEntityName_block(
                 handle,
-                entityID.id
+                entityID.bridgeToAvdeccCType()
             ) { _, _, status, entityName in
                 continuation(
                     status,
@@ -455,7 +1093,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setEntityGroupName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 entityGroupName
             ) { _, _, status, _ in
                 continuation(
@@ -472,7 +1110,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getEntityGroupName_block(
                 handle,
-                entityID.id
+                entityID.bridgeToAvdeccCType()
             ) { _, _, status, entityGroupName in
                 continuation(
                     status,
@@ -490,7 +1128,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setConfigurationName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 configurationName
             ) { _, _, status, _, _ in
@@ -509,7 +1147,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getConfigurationName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex
             ) { _, _, status, _, configurationName in
                 continuation(
@@ -529,7 +1167,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setAudioUnitName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 audioUnitIndex,
                 audioUnitName
@@ -550,7 +1188,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getAudioUnitName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 audioUnitIndex
             ) { _, _, status, _, _, audioUnitName in
@@ -571,7 +1209,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setStreamInputName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 streamIndex,
                 streamInputName
@@ -592,7 +1230,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getStreamInputName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 streamIndex
             ) { _, _, status, _, _, streamInputName in
@@ -613,7 +1251,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setStreamOutputName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 streamIndex,
                 streamOutputName
@@ -634,7 +1272,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getStreamOutputName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 streamIndex
             ) { _, _, status, _, _, streamOutputName in
@@ -655,7 +1293,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setAvbInterfaceName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 avbInterfaceIndex,
                 avbInterfaceName
@@ -676,7 +1314,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getAvbInterfaceName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 avbInterfaceIndex
             ) { _, _, status, _, _, avbInterfaceName in
@@ -697,7 +1335,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setClockSourceName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 clockSourceIndex,
                 clockSourceName
@@ -718,7 +1356,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getClockSourceName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 clockSourceIndex
             ) { _, _, status, _, _, clockSourceName in
@@ -739,7 +1377,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setMemoryObjectName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 memoryObjectIndex,
                 memoryObjectName
@@ -760,7 +1398,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getMemoryObjectName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 memoryObjectIndex
             ) { _, _, status, _, _, memoryObjectName in
@@ -781,7 +1419,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setAudioClusterName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 audioClusterIndex,
                 audioClusterName
@@ -802,7 +1440,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getAudioClusterName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 audioClusterIndex
             ) { _, _, status, _, _, audioClusterName in
@@ -823,7 +1461,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setClockDomainName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 clockDomainIndex,
                 clockDomainName
@@ -844,7 +1482,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getClockDomainName_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 configurationIndex,
                 clockDomainIndex
             ) { _, _, status, _, _, clockDomainName in
@@ -864,7 +1502,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setAudioUnitSamplingRate_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 audioUnitIndex,
                 samplingRate
             ) { _, _, status, _, _ in
@@ -880,7 +1518,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getAudioUnitSamplingRate_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 audioUnitIndex
             ) { _, _, status, _, samplingRate in
                 continuation(status, samplingRate)
@@ -896,7 +1534,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setVideoClusterSamplingRate_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 videoClusterIndex,
                 samplingRate
             ) { _, _, status, _, _ in
@@ -912,7 +1550,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getVideoClusterSamplingRate_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 videoClusterIndex
             ) { _, _, status, _, samplingRate in
                 continuation(status, samplingRate)
@@ -928,7 +1566,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setSensorClusterSamplingRate_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 sensorClusterIndex,
                 samplingRate
             ) { _, _, status, _, _ in
@@ -944,7 +1582,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getSensorClusterSamplingRate_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 sensorClusterIndex
             ) { _, _, status, _, samplingRate in
                 continuation(status, samplingRate)
@@ -960,7 +1598,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_setClockSource_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 clockDomainIndex,
                 clockSourceIndex
             ) { _, _, status, _, _ in
@@ -976,7 +1614,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getClockSource_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 clockDomainIndex
             ) { _, _, status, _, clockSourceIndex in
                 continuation(status, clockSourceIndex)
@@ -991,7 +1629,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_startStreamInput_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 streamIndex
             ) { _, _, status, _ in
                 continuation(status, ())
@@ -1006,7 +1644,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_startStreamOutput_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 streamIndex
             ) { _, _, status, _ in
                 continuation(status, ())
@@ -1021,7 +1659,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_stopStreamInput_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 streamIndex
             ) { _, _, status, _ in
                 continuation(status, ())
@@ -1036,7 +1674,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_stopStreamOutput_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 streamIndex
             ) { _, _, status, _ in
                 continuation(status, ())
@@ -1051,7 +1689,7 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getAvbInfo_block(
                 handle,
-                entityID.id,
+                entityID.bridgeToAvdeccCType(),
                 avbInterfaceIndex
             ) { _, _, status, _, info in
                 continuation(status, info != nil ? EntityModelAvbInfo(info!.pointee) : nil)
@@ -1059,12 +1697,118 @@ public final class LocalEntity {
         }
     }
 
-    // LA_AVDECC_LocalEntity_getAsPath
-    // LA_AVDECC_LocalEntity_getEntityCounters
-    // LA_AVDECC_LocalEntity_getAvbInterfaceCounters
-    // LA_AVDECC_LocalEntity_getClockDomainCounters
-    // LA_AVDECC_LocalEntity_getStreamInputCounters
-    // LA_AVDECC_LocalEntity_getStreamOutputCounters
+    public func getAsPath(
+        id entityID: UniqueIdentifier,
+        avbInterfaceIndex: EntityModelDescriptorType
+    ) async throws -> [UniqueIdentifier] {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getAsPath_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                avbInterfaceIndex
+            ) { _, _, status, _, info in
+                let path: [UniqueIdentifier]?
+
+                if let sequence = info?.pointee.sequence {
+                    path = nullTerminatedArrayToSwiftArray(sequence).map { UniqueIdentifier($0) }
+                } else {
+                    path = nil
+                }
+                continuation(status, path)
+            }
+        }
+    }
+
+    private static func makeCounters(
+        _ validCounters: UInt32,
+        _ counters: UnsafePointer<avdecc_entity_model_descriptor_counter_t>?
+    ) -> [UInt32?]? {
+        guard let counters else { return nil }
+
+        let bufferPointer = UnsafeBufferPointer(start: counters, count: 32)
+
+        var array = [UInt32?]()
+
+        for i in 0..<bufferPointer.count {
+            let valid = validCounters & (1 << i) != 0
+            array.append(valid ? bufferPointer[i] : nil)
+        }
+
+        return array
+    }
+
+    public func getEntityCounters(
+        id entityID: UniqueIdentifier
+    ) async throws -> [UInt32?] {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getEntityCounters_block(
+                handle,
+                entityID.bridgeToAvdeccCType()
+            ) { _, _, status, validCounters, counters in
+                continuation(status, Self.makeCounters(validCounters, counters))
+            }
+        }
+    }
+
+    public func getAvbInterfaceCounters(
+        id entityID: UniqueIdentifier,
+        avbInterfaceIndex: EntityModelDescriptorType
+    ) async throws -> [UInt32?] {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getAvbInterfaceCounters_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                avbInterfaceIndex
+            ) { _, _, status, _, validCounters, counters in
+                continuation(status, Self.makeCounters(validCounters, counters))
+            }
+        }
+    }
+
+    public func getClockDomainCounters(
+        id entityID: UniqueIdentifier,
+        clockDomainIndex: EntityModelDescriptorType
+    ) async throws -> [UInt32?] {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getClockDomainCounters_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                clockDomainIndex
+            ) { _, _, status, _, validCounters, counters in
+                continuation(status, Self.makeCounters(validCounters, counters))
+            }
+        }
+    }
+
+    public func getStreamInputCounters(
+        id entityID: UniqueIdentifier,
+        streamIndex: EntityModelDescriptorType
+    ) async throws -> [UInt32?] {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getStreamInputCounters_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                streamIndex
+            ) { _, _, status, _, validCounters, counters in
+                continuation(status, Self.makeCounters(validCounters, counters))
+            }
+        }
+    }
+
+    public func getStreamOutputCounters(
+        id entityID: UniqueIdentifier,
+        streamIndex: EntityModelDescriptorType
+    ) async throws -> [UInt32?] {
+        try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getStreamOutputCounters_block(
+                handle,
+                entityID.bridgeToAvdeccCType(),
+                streamIndex
+            ) { _, _, status, _, validCounters, counters in
+                continuation(status, Self.makeCounters(validCounters, counters))
+            }
+        }
+    }
 
     public func getMilanInfo(
         id entityID: UniqueIdentifier
@@ -1072,19 +1816,134 @@ public final class LocalEntity {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getMilanInfo_block(
                 handle,
-                entityID.id
+                entityID.bridgeToAvdeccCType()
             ) { _, _, status, info in
-                continuation(status, info?.pointee)
+                continuation(status, info != nil ? EntityModelMilanInfo(info!.pointee) : nil)
             }
         }
     }
 
-    // LA_AVDECC_LocalEntity_connectStream
-    // LA_AVDECC_LocalEntity_disconnectStream
-    // LA_AVDECC_LocalEntity_disconnectTalkerStream
-    // LA_AVDECC_LocalEntity_getTalkerStreamState
-    // LA_AVDECC_LocalEntity_getListenerStreamState
-    // LA_AVDECC_LocalEntity_getTalkerStreamConnection
+    public func connect(
+        talkerStream: EntityModelStreamIdentification,
+        to listenerStream: EntityModelStreamIdentification
+    ) async throws -> (UInt16, UInt16) {
+        var talkerStream = talkerStream.bridgeToAvdeccCType()
+        var listenerStream = listenerStream.bridgeToAvdeccCType()
+        return try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_connectStream_block(
+                handle,
+                &talkerStream,
+                &listenerStream
+            ) { _, _, _, connectionCount, flags, status in
+                continuation(status, (connectionCount, flags))
+            }
+        }
+    }
+
+    public func disconnect(
+        talkerStream: EntityModelStreamIdentification,
+        from listenerStream: EntityModelStreamIdentification,
+        force: Bool = false
+    ) async throws -> (UInt16, UInt16) {
+        var talkerStream = talkerStream.bridgeToAvdeccCType()
+        var listenerStream = listenerStream.bridgeToAvdeccCType()
+        return try await invokeHandler { handle, continuation in
+            if force {
+                LA_AVDECC_LocalEntity_disconnectTalkerStream_block(
+                    handle,
+                    &talkerStream,
+                    &listenerStream
+                ) { _, _, _, connectionCount, flags, status in
+                    continuation(status, (connectionCount, flags))
+                }
+            } else {
+                LA_AVDECC_LocalEntity_disconnectStream_block(
+                    handle,
+                    &talkerStream,
+                    &listenerStream
+                ) { _, _, _, connectionCount, flags, status in
+                    continuation(status, (connectionCount, flags))
+                }
+            }
+        }
+    }
+
+    public struct StreamState: Sendable {
+        public let talkerStream: EntityModelStreamIdentification?
+        public let listenerStream: EntityModelStreamIdentification?
+        public let connectionCount: UInt16
+        public let flags: UInt16
+    }
+
+    public func getTalkerStreamState(_ talkerStream: EntityModelStreamIdentification) async throws
+        -> StreamState
+    {
+        var talkerStream = talkerStream.bridgeToAvdeccCType()
+        return try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getTalkerStreamState_block(
+                handle,
+                &talkerStream
+            ) { _, talkerStream, listenerStream, connectionCount, flags, status in
+                let streamState = StreamState(
+                    talkerStream: talkerStream != nil ?
+                        EntityModelStreamIdentification(talkerStream!) : nil,
+                    listenerStream: listenerStream != nil ?
+                        EntityModelStreamIdentification(listenerStream!) : nil,
+                    connectionCount: connectionCount,
+                    flags: flags
+                )
+                continuation(status, streamState)
+            }
+        }
+    }
+
+    public func getListenerStreamState(
+        _ talkerStream: EntityModelStreamIdentification
+    ) async throws
+        -> StreamState
+    {
+        var talkerStream = talkerStream.bridgeToAvdeccCType()
+        return try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getListenerStreamState_block(
+                handle,
+                &talkerStream
+            ) { _, talkerStream, listenerStream, connectionCount, flags, status in
+                let streamState = StreamState(
+                    talkerStream: talkerStream != nil ?
+                        EntityModelStreamIdentification(talkerStream!) : nil,
+                    listenerStream: listenerStream != nil ?
+                        EntityModelStreamIdentification(listenerStream!) : nil,
+                    connectionCount: connectionCount,
+                    flags: flags
+                )
+                continuation(status, streamState)
+            }
+        }
+    }
+
+    public func getTalkerStreamConnection(
+        _ talkerStream: EntityModelStreamIdentification,
+        connectionIndex: UInt16
+    ) async throws -> StreamState {
+        var talkerStream = talkerStream.bridgeToAvdeccCType()
+        return try await invokeHandler { handle, continuation in
+            LA_AVDECC_LocalEntity_getTalkerStreamConnection_block(
+                handle,
+                &talkerStream,
+                connectionIndex
+            ) { _, talkerStream, listenerStream, connectionCount, flags, status in
+                let streamState = StreamState(
+                    talkerStream: talkerStream != nil ?
+                        EntityModelStreamIdentification(talkerStream!) : nil,
+                    listenerStream: listenerStream != nil ?
+                        EntityModelStreamIdentification(listenerStream!) : nil,
+                    connectionCount: connectionCount,
+                    flags: flags
+                )
+                continuation(status, streamState)
+            }
+        }
+    }
 }
 
 private func LocalEntity_onTransportError(handle: UnsafeMutableRawPointer?) {
