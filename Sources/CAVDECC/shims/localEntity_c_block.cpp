@@ -25,8 +25,6 @@
 
 #include "CAVDECCBlockShimsInternal.hpp"
 
-extern la::avdecc::bindings::HandleManager<la::avdecc::entity::AggregateEntity::UniquePointer> s_AggregateEntityManager;
-
 LA_AVDECC_BINDINGS_C_API avdecc_local_entity_error_t LA_AVDECC_BINDINGS_C_CALL_CONVENTION LA_AVDECC_LocalEntity_acquireEntity_block(LA_AVDECC_LOCAL_ENTITY_HANDLE const handle, avdecc_unique_identifier_t const entityID, avdecc_bool_t const isPersistent, avdecc_entity_model_descriptor_type_t const descriptorType, avdecc_entity_model_descriptor_index_t const descriptorIndex, avdecc_local_entity_acquire_entity_block const onResultBlock)
 {
 	auto onResult = CAVDECC::Block(onResultBlock);
