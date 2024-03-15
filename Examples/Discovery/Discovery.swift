@@ -24,7 +24,7 @@ import Foundation
 
 @main
 public actor Discovery: ProtocolInterfaceObserver {
-    public static func main() throws {
+    public static func main() async throws {
         if CommandLine.arguments.count != 2 {
             print("Usage: \(CommandLine.arguments[0]) [interface]")
             exit(1)
@@ -39,15 +39,11 @@ public actor Discovery: ProtocolInterfaceObserver {
             exit(2)
         }
 
-        Task {
-            do {
-                try await discovery.localEntity_test()
-            } catch {
-                debugPrint("local entity test failed with \(error)")
-            }
+        do {
+            try await discovery.localEntity_test()
+        } catch {
+            debugPrint("local entity test failed with \(error)")
         }
-
-        RunLoop.main.run()
     }
 
     private let protocolInterface: ProtocolInterface
@@ -74,11 +70,20 @@ public actor Discovery: ProtocolInterfaceObserver {
         let localEntity = try LocalEntity(protocolInterface: protocolInterface, entity: entity)
 
         for await entity in entitiesChannel {
-            let entityDescriptor = try await localEntity.readEntityDescriptor(id: entity.entityID)
-            debugPrint("read entity descriptor: \(entityDescriptor) for entity \(entity.entityID)")
+            Task {
+                let entityDescriptor = try await localEntity
+                    .readEntityDescriptor(id: entity.entityID)
+                debugPrint(
+                    "read entity descriptor: \(entityDescriptor) for entity \(entity.entityID)"
+                )
 
-            let avbInfo = try await localEntity.getAvbInfo(id: entity.entityID, avbInterfaceIndex: 0)
-            debugPrint("read AVB info: \(avbInfo)")
+                let avbInfo = try await localEntity.getAvbInfo(
+                    id: entity.entityID,
+                    avbInterfaceIndex:
+                    0
+                )
+                debugPrint("read AVB info: \(avbInfo)")
+            }
         }
 
         try? protocolInterface.releaseDynamicEID(commonInformation.entityID)
