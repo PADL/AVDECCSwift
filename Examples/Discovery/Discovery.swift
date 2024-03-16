@@ -77,12 +77,21 @@ public actor Discovery: ProtocolInterfaceObserver {
                     "read entity descriptor: \(entityDescriptor) for entity \(entity.entityID)"
                 )
 
-                let avbInfo = try await localEntity.getAvbInfo(
+                if let asPath = try? await localEntity.getAsPath(
                     id: entity.entityID,
                     avbInterfaceIndex:
                     0
-                )
-                debugPrint("read AVB info: \(avbInfo)")
+                ) {
+                    debugPrint("read gPTP AS path: \(asPath)")
+                }
+
+                if let avbInfo = try? await localEntity.getAvbInfo(
+                    id: entity.entityID,
+                    avbInterfaceIndex:
+                    0
+                ) {
+                    debugPrint("read AVB info: \(avbInfo)")
+                }
             }
         }
 
