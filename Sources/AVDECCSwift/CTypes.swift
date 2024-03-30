@@ -23,7 +23,49 @@ import Foundation // FIXME: (
 
 public typealias EntityModelLocalizedStringReference =
     avdecc_entity_model_localized_string_reference_t
-public typealias EntityModelDescriptorType = avdecc_entity_model_descriptor_type_t
+
+public enum EntityModelDescriptorType: avdecc_entity_model_descriptor_type_t {
+    case entity = 0x0000
+    case configuration = 0x0001
+    case audioUnit = 0x0002
+    case videoUnit = 0x0003
+    case sensorUnit = 0x0004
+    case streamInput = 0x0005
+    case streamOutput = 0x0006
+    case jackInput = 0x0007
+    case jackOutput = 0x0008
+    case avbInterface = 0x0009
+    case clockSource = 0x000A
+    case memoryObject = 0x000B
+    case locale = 0x000C
+    case strings = 0x000D
+    case streamPortInput = 0x000E
+    case streamPortOutput = 0x000F
+    case externalPortInput = 0x0010
+    case externalPortOutput = 0x0011
+    case internalPortInput = 0x0012
+    case internalPortOutput = 0x0013
+    case audioCluster = 0x0014
+    case videoCluster = 0x0015
+    case sensorCluster = 0x0016
+    case audioMap = 0x0017
+    case videoMap = 0x0018
+    case sensorMap = 0x0019
+    case control = 0x001A
+    case signalSelector = 0x001B
+    case mixer = 0x001C
+    case matrix = 0x001D
+    case matrixSignal = 0x001E
+    case signalSplitter = 0x001F
+    case signalCombiner = 0x0020
+    case signalDemultiplexer = 0x0021
+    case signalMultiplexer = 0x0022
+    case signalTranscoder = 0x0023
+    case clockDomain = 0x0024
+    case controlBlock = 0x0025
+    case invalid = 0xFFFF
+}
+
 public typealias EntityModelDescriptorIndex = avdecc_entity_model_descriptor_index_t
 
 public struct UniqueIdentifier: CustomStringConvertible, Equatable, Hashable, Sendable {
@@ -348,7 +390,7 @@ public struct EntityModelClockSourceDescriptor: Sendable {
     }
 
     public var clockSourceLocationType: EntityModelDescriptorType {
-        descriptor.clock_source_location_type
+        EntityModelDescriptorType(rawValue: descriptor.clock_source_location_type) ?? .invalid
     }
 
     public var clockSourceLocationIndex: EntityModelDescriptorIndex {
@@ -373,7 +415,7 @@ public struct EntityModelMemoryObjectDescriptor: Sendable {
     }
 
     public var targetDescriptorType: EntityModelDescriptorType {
-        descriptor.target_descriptor_type
+        EntityModelDescriptorType(rawValue: descriptor.target_descriptor_type) ?? .invalid
     }
 
     public var targetDescriptorIndex: EntityModelDescriptorIndex {
@@ -452,7 +494,10 @@ public struct EntityModelExternalPortDescriptor: Sendable {
     public var numberOfControls: UInt16 { descriptor.number_of_controls }
     public var baseControl: EntityModelDescriptorIndex { descriptor.base_control }
 
-    public var signalType: EntityModelDescriptorType { descriptor.signal_type }
+    public var signalType: EntityModelDescriptorType {
+        EntityModelDescriptorType(rawValue: descriptor.signal_type) ?? .invalid
+    }
+
     public var signalIndex: EntityModelDescriptorIndex { descriptor.signal_index }
 
     public var signalOutput: UInt16 { descriptor.signal_output }
@@ -474,7 +519,10 @@ public struct EntityModelInternalPortDescriptor: Sendable {
     public var numberOfControls: UInt16 { descriptor.number_of_controls }
     public var baseControl: EntityModelDescriptorIndex { descriptor.base_control }
 
-    public var signalType: EntityModelDescriptorType { descriptor.signal_type }
+    public var signalType: EntityModelDescriptorType {
+        EntityModelDescriptorType(rawValue: descriptor.signal_type) ?? .invalid
+    }
+
     public var signalIndex: EntityModelDescriptorIndex { descriptor.signal_index }
 
     public var signalOutput: UInt16 { descriptor.signal_output }
@@ -495,7 +543,10 @@ public struct EntityModelAudioClusterDescriptor: Sendable {
         descriptor.localized_description
     }
 
-    public var signalType: EntityModelDescriptorType { descriptor.signal_type }
+    public var signalType: EntityModelDescriptorType {
+        EntityModelDescriptorType(rawValue: descriptor.signal_type) ?? .invalid
+    }
+
     public var signalIndex: EntityModelDescriptorIndex { descriptor.signal_index }
 
     public var signalOutput: UInt16 { descriptor.signal_output }
