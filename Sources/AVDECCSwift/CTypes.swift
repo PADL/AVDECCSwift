@@ -24,7 +24,7 @@ import Foundation // FIXME: (
 public typealias EntityModelLocalizedStringReference =
     avdecc_entity_model_localized_string_reference_t
 
-public enum EntityModelDescriptorType: avdecc_entity_model_descriptor_type_t {
+public enum EntityModelDescriptorType: avdecc_entity_model_descriptor_type_t, Sendable {
     case entity = 0x0000
     case configuration = 0x0001
     case audioUnit = 0x0002
@@ -204,17 +204,17 @@ public struct EntityModelConfigurationDescriptor: Sendable {
     public struct Count: AvdeccCBridgeable {
         typealias AvdeccCType = avdecc_entity_model_descriptors_count_t
 
-        public let descriptorType: avdecc_entity_model_descriptor_type_t
+        public let descriptorType: EntityModelDescriptorType
         public let count: UInt16
 
         init(_ count: AvdeccCType) {
-            descriptorType = count.descriptor_type
+            descriptorType = EntityModelDescriptorType(rawValue: count.descriptor_type) ?? .invalid
             self.count = count.count
         }
 
         func bridgeToAvdeccCType() -> AvdeccCType {
             var count = avdecc_entity_model_descriptors_count_t()
-            count.descriptor_type = descriptorType
+            count.descriptor_type = descriptorType.rawValue
             count.count = self.count
             return count
         }
