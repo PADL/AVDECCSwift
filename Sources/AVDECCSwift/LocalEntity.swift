@@ -763,7 +763,7 @@ public final class LocalEntity {
     public func getStreamInputFormat(
         id entityID: UniqueIdentifier,
         streamIndex: EntityModelDescriptorIndex
-    ) async throws -> EntityModelDescriptorIndex {
+    ) async throws -> EntityModelStreamFormat {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getStreamInputFormat_block(
                 handle,
@@ -772,7 +772,7 @@ public final class LocalEntity {
             ) { _, _, status, _, format in
                 continuation(
                     status,
-                    EntityModelDescriptorIndex(format)
+                    EntityModelStreamFormat(format)
                 )
             }
         }
@@ -801,7 +801,7 @@ public final class LocalEntity {
     public func getStreamOutputFormat(
         id entityID: UniqueIdentifier,
         streamIndex: EntityModelDescriptorIndex
-    ) async throws -> EntityModelDescriptorIndex {
+    ) async throws -> EntityModelStreamFormat {
         try await invokeHandler { handle, continuation in
             LA_AVDECC_LocalEntity_getStreamOutputFormat_block(
                 handle,
@@ -810,7 +810,7 @@ public final class LocalEntity {
             ) { _, _, status, _, format in
                 continuation(
                     status,
-                    EntityModelDescriptorIndex(format)
+                    EntityModelStreamFormat(format)
                 )
             }
         }
