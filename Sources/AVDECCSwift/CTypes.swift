@@ -108,6 +108,27 @@ public struct EntityConnectionFlags: OptionSet, Equatable, Sendable {
         ))
 }
 
+public struct EntityStreamFlags: OptionSet, Equatable, Sendable {
+    public typealias RawValue = UInt16
+
+    public var rawValue: RawValue
+
+    public init(rawValue: RawValue) { self.rawValue = rawValue }
+
+    init(_ flags: avdecc_entity_stream_flags_e) {
+        rawValue = UInt16(flags.rawValue)
+    }
+
+    public static let clockSyncSource =
+        EntityStreamFlags(rawValue: UInt16(avdecc_entity_stream_flags_clock_sync_source.rawValue))
+    public static let classA =
+        EntityStreamFlags(rawValue: UInt16(avdecc_entity_stream_flags_class_a.rawValue))
+    public static let classB =
+        EntityStreamFlags(rawValue: UInt16(avdecc_entity_stream_flags_class_b.rawValue))
+    public static let supportsEncrypted =
+        EntityStreamFlags(rawValue: UInt16(avdecc_entity_stream_flags_supports_encrypted.rawValue))
+}
+
 public typealias EntityModelDescriptorIndex = avdecc_entity_model_descriptor_index_t
 
 public struct UniqueIdentifier: CustomStringConvertible, Equatable, Hashable, Sendable {
@@ -684,7 +705,9 @@ public struct EntityModelStreamDescriptor: Sendable {
     }
 
     public var clockDomainIndex: EntityModelDescriptorIndex { descriptor.clock_domain_index }
-    public var streamFlags: avdecc_entity_stream_flags_t { descriptor.stream_flags }
+    public var streamFlags: EntityStreamFlags {
+        EntityStreamFlags(rawValue: descriptor.stream_flags)
+    }
 
     public var currentFormat: EntityModelStreamFormat {
         EntityModelStreamFormat(descriptor.current_format)
@@ -693,20 +716,19 @@ public struct EntityModelStreamDescriptor: Sendable {
     public var avbInterfaceIndex: EntityModelDescriptorIndex { descriptor.avb_interface_index }
 
     public var clockSyncSource: Bool {
-        descriptor.stream_flags & UInt16(avdecc_entity_stream_flags_clock_sync_source.rawValue) != 0
+        streamFlags.contains(.clockSyncSource)
     }
 
     public var classASupported: Bool {
-        descriptor.stream_flags & UInt16(avdecc_entity_stream_flags_class_a.rawValue) != 0
+        streamFlags.contains(.classA)
     }
 
     public var classBSupported: Bool {
-        descriptor.stream_flags & UInt16(avdecc_entity_stream_flags_class_b.rawValue) != 0
+        streamFlags.contains(.classB)
     }
 
     public var supportedEncrypted: Bool {
-        descriptor
-            .stream_flags & UInt16(avdecc_entity_stream_flags_supports_encrypted.rawValue) != 0
+        streamFlags.contains(.supportsEncrypted)
     }
 }
 
