@@ -91,12 +91,320 @@ public struct UniqueIdentifier: CustomStringConvertible, Equatable, Hashable, Se
 public struct EntityModelStreamFormat: CustomStringConvertible, Equatable, Hashable, Sendable {
     var _format: avdecc_entity_model_stream_format_t
 
+    public enum AvtpVersion: UInt8, Equatable, Sendable {
+        case version_0 = 0
+    }
+
+    public enum AvtpSubtype: UInt8, Equatable, Sendable {
+        case iec61883iidc = 0x00
+        case mmaStream = 0x01
+        case aaf = 0x02
+        case cvf = 0x03
+        case crf = 0x04
+        case tscf = 0x05
+        case svc = 0x06
+        case rvf = 0x07
+    }
+
+    // 61883-6
+
+    enum iec_61883_sf: UInt8, Equatable, Sendable {
+        case iidc = 0
+        case iec61883 = 1
+    }
+
+    enum iec_61883_cip: UInt8, Equatable, Sendable {
+        case fmt_4 = 0x20
+        case fmt_6 = 0x10
+        case fmt_8 = 0x01
+    }
+
+    enum iec_61883_6_fdf_evt: UInt8, Equatable, Sendable {
+        case am824 = 0x00
+        case packed = 0x02
+        case floating = 0x04
+        case int32 = 0x06
+    }
+
+    enum iec_61883_6_fdf_sfc: UInt8, Equatable, Sendable {
+        case fs32000 = 0x00
+        case fs44100 = 0x01
+        case fs48000 = 0x02
+        case fs88200 = 0x03
+        case fs96000 = 0x04
+        case fs176400 = 0x05
+        case fs192000 = 0x06
+        case reserved = 0x07
+
+        public var sampleRate: Int? {
+            switch self {
+            case .fs32000: return 32000
+            case .fs44100: return 44100
+            case .fs48000: return 48000
+            case .fs88200: return 88200
+            case .fs96000: return 96000
+            case .fs176400: return 176_400
+            case .fs192000: return 192_000
+            default: return nil
+            }
+        }
+    }
+
+    private var iec61883_sf_fmt_r: UInt8 {
+        UInt8((_format >> 48) & 0xFF)
+    }
+
+    private var iec61883_sf: iec_61883_sf? {
+        iec_61883_sf(rawValue: iec61883_sf_fmt_r & 0x80)
+    }
+
+    private var iec61883_fmt: iec_61883_cip? {
+        iec_61883_cip(rawValue: iec61883_sf_fmt_r & 0x7E)
+    }
+
+    private var iec61883_r: Bool {
+        iec61883_sf_fmt_r & 0x01 != 0
+    }
+
+    private var iec61883_6_fdf: UInt8 {
+        UInt8((_format >> 40) & 0xFF)
+    }
+
+    private var iec61883_6_fdf_evt: iec_61883_6_fdf_evt? {
+        iec_61883_6_fdf_evt(rawValue: iec61883_6_fdf & 0xF8)
+    }
+
+    private var iec61883_6_fdf_sfc: iec_61883_6_fdf_sfc? {
+        iec_61883_6_fdf_sfc(rawValue: iec61883_6_fdf & 0x07)
+    }
+
+    private var iec61883_6_dbs: UInt8 {
+        UInt8((_format >> 32) & 0xFF)
+    }
+
+    private var iec61883_6_b_nb_ut_sc_rsvd: UInt8 {
+        UInt8((format >> 24) & 0xFF)
+    }
+
+    private var iec61883_6_iec_60958_cnt: UInt8 {
+        UInt8((_format >> 16) & 0xFF)
+    }
+
+    private var iec61883_6_label_mbla_cnt: UInt8 {
+        UInt8((_format >> 8) & 0xFF)
+    }
+
+    private var iec61883_isFloatingPoint: Bool {
+        guard iec61883_sf == .iec61883, iec61883_fmt == .fmt_6 else { return false }
+        return iec61883_6_fdf_evt == .floating
+    }
+
+    public var iec61883_sampleRate: Int? {
+        guard iec61883_sf == .iec61883, iec61883_fmt == .fmt_6,
+              let iec61883_6_fdf_sfc else { return nil }
+        return iec61883_6_fdf_sfc.sampleRate
+    }
+
+    public var iec61883_channelsPerFrame: Int? {
+        guard iec61883_sf == .iec61883, iec61883_fmt == .fmt_6,
+              let iec61883_6_fdf_evt else { return nil }
+        switch iec61883_6_fdf_evt {
+        case .am824:
+            return Int(iec61883_6_label_mbla_cnt)
+        case .floating:
+            fallthrough
+        case .int32:
+            return Int(iec61883_6_dbs)
+        default:
+            return nil
+        }
+    }
+
+    public var iec61883_bitDepth: Int? {
+        guard iec61883_sf == .iec61883, iec61883_fmt == .fmt_6,
+              let iec61883_6_fdf_evt else { return nil }
+        switch iec61883_6_fdf_evt {
+        case .am824:
+            return 24
+        default:
+            return 32
+        }
+    }
+
+    public var iec61883_samplesPerFrame: Int? {
+        // TODO: implement
+        nil
+    }
+
+    // AAF
+
+    public enum AafFormat: UInt8, Equatable, Sendable {
+        case user = 0
+        case float32Bit = 1
+        case int32Bit = 2
+        case int24Bit = 3
+        case int16Bit = 4
+        case aes3_32Bit = 5
+
+        public var bitDepth: Int? {
+            switch self {
+            case .float32Bit: return 32
+            case .int32Bit: return 32
+            case .int24Bit: return 24
+            case .int16Bit: return 16
+            default: return nil
+            }
+        }
+    }
+
+    private var aafFormat: AafFormat? {
+        AafFormat(rawValue: UInt8((_format >> 40) & 0xF))
+    }
+
+    private var aafBitDepth: Int {
+        Int(UInt8((_format >> 32) & 0xFF))
+    }
+
+    private var aafIsFloatingPoint: Bool {
+        aafFormat == .float32Bit
+    }
+
+    private var aafIsAES3Format: Bool {
+        aafFormat == .aes3_32Bit
+    }
+
+    public enum AafNominalSampleRate: UInt8, Equatable, Sendable {
+        case userSpecified = 0
+        case fs8000 = 1
+        case fs16000 = 2
+        case fs32000 = 3
+        case fs44100 = 4
+        case fs48000 = 5
+        case fs88200 = 6
+        case fs96000 = 7
+        case fs176400 = 8
+        case fs192000 = 9
+        case fs24000 = 10
+        case reserved1 = 11
+        case reserved2 = 12
+        case reserved3 = 13
+        case reserved4 = 14
+        case reserved5 = 15
+
+        public var sampleRate: Int? {
+            switch self {
+            case .fs8000: return 8000
+            case .fs16000: return 16000
+            case .fs32000: return 32000
+            case .fs44100: return 44100
+            case .fs48000: return 48000
+            case .fs88200: return 88200
+            case .fs96000: return 96000
+            case .fs176400: return 176_400
+            case .fs192000: return 192_000
+            case .fs24000: return 24000
+            default: return nil
+            }
+        }
+    }
+
+    private var aafNominalSampleRate: AafNominalSampleRate? {
+        AafNominalSampleRate(rawValue: UInt8((_format >> 48) & 0xF))
+    }
+
+    private var aafChannelsPerFrame: Int? {
+        // TODO: support AES3
+        guard !aafIsAES3Format else { return nil }
+        return Int(_format >> 22 & 0x3FF)
+    }
+
+    private var aafSamplesPerFrame: Int? {
+        // TODO: support AES3
+        guard !aafIsAES3Format else { return nil }
+        return Int(_format >> 12 & 0x3FF)
+    }
+
+    // AVTP common
+
+    public var version: AvtpVersion? {
+        AvtpVersion(rawValue: UInt8((_format >> 63) & 0x1))
+    }
+
+    public var subtype: AvtpSubtype? {
+        AvtpSubtype(rawValue: UInt8((_format >> 56) & 0x7F))
+    }
+
+    public var sampleRate: Int? {
+        switch subtype {
+        case .iec61883iidc:
+            return iec61883_sampleRate
+        case .aaf:
+            guard let nsr = aafNominalSampleRate else {
+                return nil
+            }
+            return nsr.sampleRate
+        default:
+            return nil
+        }
+    }
+
+    public var channelsPerFrame: Int? {
+        switch subtype {
+        case .iec61883iidc:
+            return iec61883_channelsPerFrame
+        case .aaf:
+            return aafChannelsPerFrame
+        default:
+            return nil
+        }
+    }
+
+    public var bitDepth: Int? {
+        switch subtype {
+        case .iec61883iidc:
+            return iec61883_bitDepth
+        case .aaf:
+            guard let format = aafFormat, let formatBitDepth = format.bitDepth else {
+                return nil
+            }
+            return formatBitDepth > aafBitDepth ? aafBitDepth : formatBitDepth
+        default:
+            return nil
+        }
+    }
+
+    public var samplesPerFrame: Int? {
+        switch subtype {
+        case .iec61883iidc:
+            return iec61883_samplesPerFrame
+        case .aaf:
+            return aafSamplesPerFrame
+        default:
+            return nil
+        }
+    }
+
+    public var isFloatingPoint: Bool {
+        switch subtype {
+        case .iec61883iidc:
+            return iec61883_isFloatingPoint
+        case .aaf:
+            return aafIsFloatingPoint
+        default:
+            return false
+        }
+    }
+
     public var format: UInt64 {
         _format
     }
 
     public init() {
         _format = 0
+    }
+
+    public init(format: UInt64) {
+        _format = avdecc_entity_model_stream_format_t(format)
     }
 
     public init(_ format: avdecc_entity_model_stream_format_t) {
