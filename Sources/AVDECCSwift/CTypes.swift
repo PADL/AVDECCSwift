@@ -66,6 +66,48 @@ public enum EntityModelDescriptorType: avdecc_entity_model_descriptor_type_t, Se
     case invalid = 0xFFFF
 }
 
+public struct EntityConnectionFlags: OptionSet, Equatable, Sendable {
+    public typealias RawValue = UInt16
+
+    public var rawValue: RawValue
+
+    public init(rawValue: RawValue) { self.rawValue = rawValue }
+
+    init(_ flags: avdecc_entity_connection_flags_e) {
+        rawValue = UInt16(flags.rawValue)
+    }
+
+    public static let classB =
+        EntityConnectionFlags(rawValue: UInt16(avdecc_entity_connection_flags_class_b.rawValue))
+    public static let fastConnect =
+        EntityConnectionFlags(rawValue: UInt16(
+            avdecc_entity_connection_flags_fast_connect
+                .rawValue
+        ))
+    public static let savedState =
+        EntityConnectionFlags(rawValue: UInt16(avdecc_entity_connection_flags_saved_state.rawValue))
+    public static let streamingWait =
+        EntityConnectionFlags(rawValue: UInt16(
+            avdecc_entity_connection_flags_streaming_wait
+                .rawValue
+        ))
+    public static let supportsEncrypted =
+        EntityConnectionFlags(rawValue: UInt16(
+            avdecc_entity_connection_flags_supports_encrypted
+                .rawValue
+        ))
+    public static let encryptedPDU =
+        EntityConnectionFlags(rawValue: UInt16(
+            avdecc_entity_connection_flags_encrypted_pdu
+                .rawValue
+        ))
+    public static let talkerFailed =
+        EntityConnectionFlags(rawValue: UInt16(
+            avdecc_entity_connection_flags_talker_failed
+                .rawValue
+        ))
+}
+
 public typealias EntityModelDescriptorIndex = avdecc_entity_model_descriptor_index_t
 
 public struct UniqueIdentifier: CustomStringConvertible, Equatable, Hashable, Sendable {
@@ -649,6 +691,23 @@ public struct EntityModelStreamDescriptor: Sendable {
     }
 
     public var avbInterfaceIndex: EntityModelDescriptorIndex { descriptor.avb_interface_index }
+
+    public var clockSyncSource: Bool {
+        descriptor.stream_flags & UInt16(avdecc_entity_stream_flags_clock_sync_source.rawValue) != 0
+    }
+
+    public var classASupported: Bool {
+        descriptor.stream_flags & UInt16(avdecc_entity_stream_flags_class_a.rawValue) != 0
+    }
+
+    public var classBSupported: Bool {
+        descriptor.stream_flags & UInt16(avdecc_entity_stream_flags_class_b.rawValue) != 0
+    }
+
+    public var supportedEncrypted: Bool {
+        descriptor
+            .stream_flags & UInt16(avdecc_entity_stream_flags_supports_encrypted.rawValue) != 0
+    }
 }
 
 public struct EntityModelAvbInterfaceDescriptor: Sendable {
@@ -676,6 +735,23 @@ public struct EntityModelAvbInterfaceDescriptor: Sendable {
     public var logAnnounceInterval: UInt8 { descriptor.log_announce_interval }
     public var logPDelayInterval: UInt8 { descriptor.log_p_delay_interval }
     public var portNumber: UInt16 { descriptor.port_number }
+
+    public var gPTPGrandmasterSupported: Bool {
+        descriptor
+            .interface_flags &
+            UInt16(avdecc_entity_avb_interface_flags_gptp_grandmaster_supported.rawValue) != 0
+    }
+
+    public var gPTPSupported: Bool {
+        descriptor
+            .interface_flags & UInt16(avdecc_entity_avb_interface_flags_gptp_supported.rawValue) !=
+            0
+    }
+
+    public var srpSupported: Bool {
+        descriptor
+            .interface_flags & UInt16(avdecc_entity_avb_interface_flags_srp_supported.rawValue) != 0
+    }
 }
 
 public struct EntityModelClockSourceDescriptor: Sendable {
@@ -688,6 +764,16 @@ public struct EntityModelClockSourceDescriptor: Sendable {
     public var objectName: String { descriptor.objectName }
     public var localizedDescription: EntityModelLocalizedStringReference {
         descriptor.localized_description
+    }
+
+    public var clockSourceIdentifiedByStreamID: Bool {
+        descriptor
+            .clock_source_flags & UInt16(avdecc_entity_clock_source_flags_stream_id.rawValue) != 0
+    }
+
+    public var clockSourceIdentifiedByLocalID: Bool {
+        descriptor
+            .clock_source_flags & UInt16(avdecc_entity_clock_source_flags_local_id.rawValue) != 0
     }
 
     public var clockSourceFlags: avdecc_entity_clock_source_flags_t { descriptor.clock_source_flags
@@ -988,20 +1074,80 @@ public struct EntityModelStreamInfo: Sendable, AvdeccCBridgeable {
         descriptor
     }
 
-    public var streamInfoFlags: UInt32 { descriptor.stream_info_flags }
-    public var streamFormat: EntityModelStreamFormat {
-        EntityModelStreamFormat(descriptor.stream_format)
+    public var streamFormat: EntityModelStreamFormat? {
+        guard descriptor.stream_info_flags & avdecc_entity_stream_info_flags_stream_format_valid
+            .rawValue != 0 else { return nil }
+        return EntityModelStreamFormat(descriptor.stream_format)
     }
 
-    public var streamID: UniqueIdentifier { UniqueIdentifier(descriptor.stream_id) }
-    public var msrpAccumulatedLatency: UInt32 { descriptor.msrp_accumulated_latency }
-    public var streamDestinationMacAddress: (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8) {
-        descriptor.stream_dest_mac
+    public var classB: Bool {
+        descriptor.stream_info_flags & avdecc_entity_stream_info_flags_class_b.rawValue != 0
     }
 
-    public var msrpFailureCode: UInt8 { descriptor.msrp_failure_code }
-    public var msrpFailureBridgeID: UInt64 { descriptor.msrp_failure_bridge_id }
-    public var streamVlanID: UInt16 { descriptor.stream_vlan_id }
+    public var fastConnect: Bool {
+        descriptor.stream_info_flags & avdecc_entity_stream_info_flags_fast_connect.rawValue != 0
+    }
+
+    public var savedState: Bool {
+        descriptor.stream_info_flags & avdecc_entity_stream_info_flags_saved_state.rawValue != 0
+    }
+
+    public var streamingWait: Bool {
+        descriptor.stream_info_flags & avdecc_entity_stream_info_flags_streaming_wait.rawValue != 0
+    }
+
+    public var supportsEncrypted: Bool {
+        descriptor.stream_info_flags & avdecc_entity_stream_info_flags_supports_encrypted
+            .rawValue != 0
+    }
+
+    public var encryptedPDU: Bool {
+        descriptor.stream_info_flags & avdecc_entity_stream_info_flags_encrypted_pdu.rawValue != 0
+    }
+
+    public var talkerFailed: Bool {
+        descriptor.stream_info_flags & avdecc_entity_stream_info_flags_talker_failed.rawValue != 0
+    }
+
+    public var connected: Bool {
+        descriptor.stream_info_flags & avdecc_entity_stream_info_flags_connected.rawValue != 0
+    }
+
+    public var streamID: UniqueIdentifier? {
+        guard descriptor.stream_info_flags & avdecc_entity_stream_info_flags_stream_id_valid
+            .rawValue != 0 else { return nil }
+        return UniqueIdentifier(descriptor.stream_id)
+    }
+
+    public var msrpAccumulatedLatency: UInt32? {
+        guard descriptor.stream_info_flags & avdecc_entity_stream_info_flags_msrp_acc_lat_valid
+            .rawValue != 0 else { return nil }
+        return descriptor.msrp_accumulated_latency
+    }
+
+    public var streamDestinationMacAddress: (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8)? {
+        guard descriptor.stream_info_flags & avdecc_entity_stream_info_flags_stream_dest_mac_valid
+            .rawValue != 0 else { return nil }
+        return descriptor.stream_dest_mac
+    }
+
+    public var msrpFailureCode: UInt8? {
+        guard descriptor.stream_info_flags & avdecc_entity_stream_info_flags_msrp_failure_valid
+            .rawValue != 0 else { return nil }
+        return descriptor.msrp_failure_code
+    }
+
+    public var msrpFailureBridgeID: UInt64? {
+        guard descriptor.stream_info_flags & avdecc_entity_stream_info_flags_msrp_failure_valid
+            .rawValue != 0 else { return nil }
+        return descriptor.msrp_failure_bridge_id
+    }
+
+    public var streamVlanID: UInt16? {
+        guard descriptor.stream_info_flags & avdecc_entity_stream_info_flags_stream_vlan_id_valid
+            .rawValue != 0 else { return nil }
+        return descriptor.stream_vlan_id
+    }
 
     // MILAN additions
 

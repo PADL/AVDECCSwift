@@ -1826,7 +1826,7 @@ public final class LocalEntity {
     public func connect(
         talkerStream: EntityModelStreamIdentification,
         to listenerStream: EntityModelStreamIdentification
-    ) async throws -> (UInt16, UInt16) {
+    ) async throws -> (UInt16, EntityConnectionFlags) {
         var talkerStream = talkerStream.bridgeToAvdeccCType()
         var listenerStream = listenerStream.bridgeToAvdeccCType()
         return try await invokeHandler { handle, continuation in
@@ -1835,7 +1835,7 @@ public final class LocalEntity {
                 &talkerStream,
                 &listenerStream
             ) { _, _, _, connectionCount, flags, status in
-                continuation(status, (connectionCount, flags))
+                continuation(status, (connectionCount, EntityConnectionFlags(rawValue: flags)))
             }
         }
     }
@@ -1844,7 +1844,7 @@ public final class LocalEntity {
         talkerStream: EntityModelStreamIdentification,
         from listenerStream: EntityModelStreamIdentification,
         force: Bool = false
-    ) async throws -> (UInt16, UInt16) {
+    ) async throws -> (UInt16, EntityConnectionFlags) {
         var talkerStream = talkerStream.bridgeToAvdeccCType()
         var listenerStream = listenerStream.bridgeToAvdeccCType()
         return try await invokeHandler { handle, continuation in
@@ -1854,7 +1854,7 @@ public final class LocalEntity {
                     &talkerStream,
                     &listenerStream
                 ) { _, _, _, connectionCount, flags, status in
-                    continuation(status, (connectionCount, flags))
+                    continuation(status, (connectionCount, EntityConnectionFlags(rawValue: flags)))
                 }
             } else {
                 LA_AVDECC_LocalEntity_disconnectStream_block(
@@ -1862,7 +1862,7 @@ public final class LocalEntity {
                     &talkerStream,
                     &listenerStream
                 ) { _, _, _, connectionCount, flags, status in
-                    continuation(status, (connectionCount, flags))
+                    continuation(status, (connectionCount, EntityConnectionFlags(rawValue: flags)))
                 }
             }
         }
