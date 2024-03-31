@@ -399,6 +399,10 @@ public struct EntityModelStreamFormat: CustomStringConvertible, Equatable, Hasha
         _format
     }
 
+    public var formatBytes: [UInt8] {
+        withUnsafeBytes(of: format.bigEndian, Array.init)
+    }
+
     public init() {
         _format = 0
     }
