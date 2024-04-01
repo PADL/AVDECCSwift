@@ -119,6 +119,12 @@ let package = Package(
             ],
             path: "Examples/Discovery"
         ),
+        .testTarget(
+            name: "AVDECCSwiftTests",
+            dependencies: [
+                .target(name: "AVDECCSwift"),
+            ]
+        ),
     ],
     cLanguageStandard: .c17,
     cxxLanguageStandard: .cxx17

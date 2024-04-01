@@ -218,11 +218,11 @@ public struct EntityModelStreamFormat: CustomStringConvertible, Equatable, Hasha
     }
 
     private var iec61883_sf: iec_61883_sf? {
-        iec_61883_sf(rawValue: iec61883_sf_fmt_r & 0x80)
+        iec_61883_sf(rawValue: (iec61883_sf_fmt_r & 0x80) >> 7)
     }
 
     private var iec61883_fmt: iec_61883_cip? {
-        iec_61883_cip(rawValue: iec61883_sf_fmt_r & 0x7E)
+        iec_61883_cip(rawValue: (iec61883_sf_fmt_r & 0x7E) >> 1)
     }
 
     private var iec61883_r: Bool {
