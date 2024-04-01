@@ -147,7 +147,7 @@ public struct UniqueIdentifier: CustomStringConvertible, Equatable, Hashable, Se
     }
 
     public var description: String {
-        String(format: "0x%llx", id)
+        String(format: "%llx", id)
     }
 }
 
@@ -479,7 +479,7 @@ public struct EntityModelStreamFormat: CustomStringConvertible, Equatable, Hasha
     }
 
     public var description: String {
-        String(format: "0x%llx", _format)
+        String(format: "%llx", _format)
     }
 }
 
