@@ -138,8 +138,17 @@ public final class ProtocolInterface {
         }
     }
 
+    public enum `Type`: UInt8 {
+        case none = 0
+        case pCap = 1
+        case macOSNative = 2
+        case proxy = 4
+        case virtual = 8
+        case serial = 16
+    }
+
     public init(
-        type: avdecc_protocol_interface_type_e = avdecc_protocol_interface_type_pcap,
+        type: Type = .pCap,
         interfaceID: String,
         executorName: String = DefaultExecutorName
     ) throws {
