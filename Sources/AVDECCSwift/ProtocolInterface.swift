@@ -39,6 +39,15 @@ public enum ProtocolInterfaceError: UInt8, Error {
     }
 }
 
+public enum ProtocolInterfaceType: UInt8 {
+    case none = 0
+    case pCap = 1
+    case macOSNative = 2
+    case proxy = 4
+    case virtual = 8
+    case serial = 16
+}
+
 func withProtocolInterfaceError(_ block: () -> avdecc_protocol_interface_error_t) throws {
     let err = block()
     if err != 0 {
@@ -138,17 +147,8 @@ public final class ProtocolInterface {
         }
     }
 
-    public enum `Type`: UInt8 {
-        case none = 0
-        case pCap = 1
-        case macOSNative = 2
-        case proxy = 4
-        case virtual = 8
-        case serial = 16
-    }
-
     public init(
-        type: Type = .pCap,
+        type: ProtocolInterfaceType = .pCap,
         interfaceID: String,
         executorName: String = DefaultExecutorName
     ) throws {

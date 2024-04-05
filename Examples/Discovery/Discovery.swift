@@ -26,14 +26,19 @@ import Foundation
 public actor Discovery: ProtocolInterfaceObserver {
     public static func main() async throws {
         if CommandLine.arguments.count != 2 {
-            print("Usage: \(CommandLine.arguments[0]) [interface]")
+            print("Usage: \(CommandLine.arguments[0]) [interface|/dev/ttyXXX]")
             exit(1)
         }
 
         let discovery: Discovery
 
         do {
-            discovery = try Discovery(interfaceID: CommandLine.arguments[1])
+            let interfaceID = CommandLine.arguments[1]
+            if interfaceID.hasPrefix("/") {
+                discovery = try Discovery(type: .serial, interfaceID: interfaceID)
+            } else {
+                discovery = try Discovery(type: .pCap, interfaceID: CommandLine.arguments[1])
+            }
         } catch {
             debugPrint("failed to initialize AVDECC library: \(error)")
             exit(2)
@@ -50,8 +55,8 @@ public actor Discovery: ProtocolInterfaceObserver {
     private let entitiesChannel = AsyncChannel<Entity>()
     private let progID = UInt16(5)
 
-    init(interfaceID: String) throws {
-        protocolInterface = try ProtocolInterface(interfaceID: interfaceID)
+    init(type: ProtocolInterfaceType, interfaceID: String) throws {
+        protocolInterface = try ProtocolInterface(type: type, interfaceID: interfaceID)
         protocolInterface.observer = self
     }
 
