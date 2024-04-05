@@ -46,6 +46,7 @@ public enum ProtocolInterfaceType: UInt8 {
     case proxy = 4
     case virtual = 8
     case serial = 16
+    case local = 32
 }
 
 func withProtocolInterfaceError(_ block: () -> avdecc_protocol_interface_error_t) throws {
