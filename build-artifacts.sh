@@ -31,16 +31,20 @@ if [ "$PLATFORM" == "mac" ]; then
     ARCHS="-arch x64 -arch arm64"
     CLANGDIR=
     SOSUFFIX=dylib;
+    ARCH=x64_arm64;
+    BUILDCFLAGS="-Wno-error=deprecated-declarations -fblocks";
+    BUILDLDFLAGS_SHARED="";
+    BUILDLDFLAGS_STATIC="";
 else
     ARCHS="-arch ${ARCH}"
     CLANGDIR=/opt/swift
     SOSUFFIX=so;
+    BUILDCFLAGS="-I${CLANGDIR}/usr/lib/swift -fblocks"
+    BUILDLDFLAGS_SHARED="-L${CLANGDIR}/usr/lib/swift/${PLATFORM} -Wl,-rpath,${CLANGDIR}/usr/lib/swift/${PLATFORM} -lBlocksRuntime"
+    BUILDLDFLAGS_STATIC="-Wl,-L${CLANGDIR}/usr/lib/swift_static/${PLATFORM} -lBlocksRuntime"
 fi
 
 BUILDDIR="_build_${PLATFORM}_${ARCH}_makefiles_debug"
-BUILDCFLAGS="-I${CLANGDIR}/usr/lib/swift -fblocks"
-BUILDLDFLAGS_SHARED="-L${CLANGDIR}/usr/lib/swift/${PLATFORM} -Wl,-rpath,${CLANGDIR}/usr/lib/swift/${PLATFORM} -lBlocksRuntime"
-BUILDLDFLAGS_STATIC="-Wl,-L${CLANGDIR}/usr/lib/swift_static/${PLATFORM} -lBlocksRuntime"
 
 pushd Sources/CAVDECC/avdecc
 echo "Build directory is $BUILDDIR with flags $BUILDFLAGS"

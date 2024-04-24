@@ -11,18 +11,21 @@ let Platform: String
 #if os(Linux)
 Platform = "linux"
 #elseif canImport(Darwin)
-Platform = "darwin"
+Platform = "mac"
 #endif
 
 let Architecture: String
 
-#if arch(x86_64)
+#if canImport(Darwin)
+Architecture = "x64_arm64"
+#elseif arch(x86_64)
 Architecture = "x86"
 #elseif arch(arm64)
 Architecture = "arm64"
 #endif
 
 // FIXME: this is clearly not right
+
 let AvdeccBuildDir = "_build_\(Platform)_\(Architecture)_makefiles_\(BuildConfiguration)"
 let AvdeccArtifactRoot = ".build/artifacts/avdeccswift/avdecc"
 let AvdeccIncludePath = "\(AvdeccArtifactRoot)/include"
@@ -30,6 +33,13 @@ let AvdeccCxxLibPath = "\(AvdeccArtifactRoot)/\(AvdeccBuildDir)/src"
 let AvdeccCLibPath = "\(AvdeccCxxLibPath)/bindings/c"
 let AvdeccCxxControllerLibPath = "\(AvdeccCxxLibPath)/controller"
 let AvdeccAltLibPath = "/usr/local/lib"
+
+var AvdeccLinkerSettings = [LinkerSetting]()
+
+// only necessary on Linux
+#if !canImport(Darwin)
+AvdeccLinkerSettings += [.linkedLibrary("BlocksRuntime")]
+#endif
 
 let AvdeccUnsafeLinkerFlags: [String] = [
     "-Xlinker", "-L", "-Xlinker", AvdeccCxxLibPath,
@@ -45,7 +55,7 @@ let AvdeccUnsafeLinkerFlags: [String] = [
 let package = Package(
     name: "AVDECCSwift",
     platforms: [
-        .macOS(.v10_15),
+        .macOS(.v13),
     ],
     products: [
         .library(
@@ -91,9 +101,8 @@ let package = Package(
             linkerSettings: [
                 .linkedLibrary("la_avdecc_c-d"),
                 .linkedLibrary("la_avdecc_cxx-d"),
-                .linkedLibrary("BlocksRuntime"),
                 .unsafeFlags(AvdeccUnsafeLinkerFlags),
-            ]
+            ] + AvdeccLinkerSettings
         ),
         .target(
             name: "AVDECCSwift",
