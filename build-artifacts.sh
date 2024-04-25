@@ -32,6 +32,7 @@ if [ "$PLATFORM" == "mac" ]; then
     CLANGDIR=
     SOSUFFIX=dylib;
     ARCH=x64_arm64;
+    CONFIG=release;
     BUILDCFLAGS="-Wno-error=deprecated-declarations -fblocks";
     BUILDLDFLAGS_SHARED="";
     BUILDLDFLAGS_STATIC="";
@@ -39,16 +40,18 @@ else
     ARCHS="-arch ${ARCH}"
     CLANGDIR=/opt/swift
     SOSUFFIX=so;
+    CONFIG=debug;
     BUILDCFLAGS="-I${CLANGDIR}/usr/lib/swift -fblocks"
     BUILDLDFLAGS_SHARED="-L${CLANGDIR}/usr/lib/swift/${PLATFORM} -Wl,-rpath,${CLANGDIR}/usr/lib/swift/${PLATFORM} -lBlocksRuntime"
     BUILDLDFLAGS_STATIC="-Wl,-L${CLANGDIR}/usr/lib/swift_static/${PLATFORM} -lBlocksRuntime"
 fi
 
-BUILDDIR="_build_${PLATFORM}_${ARCH}_makefiles_debug"
+# for macOS, build release as otherwise artifact bundle exceeds non-LFS GH size
+BUILDDIR="_build_${PLATFORM}_${ARCH}_makefiles_${CONFIG}"
 
 pushd Sources/CAVDECC/avdecc
 echo "Build directory is $BUILDDIR with flags $BUILDFLAGS"
-#rm -rf $BUILDDIR
+rm -rf $BUILDDIR
 ./gen_cmake.sh ${ARCHS} \
     -a "-DCMAKE_C_COMPILER=${CLANGDIR}/usr/bin/clang" \
     -a "-DCMAKE_C_FLAGS=${BUILDCFLAGS}" \
@@ -57,7 +60,7 @@ echo "Build directory is $BUILDDIR with flags $BUILDFLAGS"
     -a "-DCMAKE_SHARED_LINKER_FLAGS=${BUILDLDFLAGS_SHARED}" \
     -a "-DCMAKE_STATIC_LINKER_FLAGS=" \
     -c "Unix Makefiles" \
-    -debug \
+    "-${CONFIG}" \
     -build-c
 
 cp ../../../info.json.in info.json

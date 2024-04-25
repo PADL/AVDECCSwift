@@ -4,7 +4,11 @@ import Foundation
 import PackageDescription
 
 // FIXME: make BuildConfigurationurable
+#if os(Linux)
 let BuildConfiguration = "debug"
+#else
+let BuildConfiguration = "release"
+#endif
 
 let Platform: String
 
@@ -33,6 +37,7 @@ let AvdeccCxxLibPath = "\(AvdeccArtifactRoot)/\(AvdeccBuildDir)/src"
 let AvdeccCLibPath = "\(AvdeccCxxLibPath)/bindings/c"
 let AvdeccCxxControllerLibPath = "\(AvdeccCxxLibPath)/controller"
 let AvdeccAltLibPath = "/usr/local/lib"
+let AvdeccDebugSuffix = BuildConfiguration == "debug" ? "-d" : ""
 
 var AvdeccLinkerSettings = [LinkerSetting]()
 
@@ -73,6 +78,8 @@ let package = Package(
         .binaryTarget(
             name: "avdecc",
             path: "avdecc.artifactbundle.zip"
+//            url: "https://github.com/PADL/AVDECCSwift/raw/main/avdecc.artifactbundle.zip",
+//            checksum: "8eeb26c186329c7849c18a14837b6d78cea5d9aecb3e7fbb720274869e79a810"
         ),
         .target(
             name: "CAVDECC",
@@ -99,8 +106,8 @@ let package = Package(
             swiftSettings: [
             ],
             linkerSettings: [
-                .linkedLibrary("la_avdecc_c-d"),
-                .linkedLibrary("la_avdecc_cxx-d"),
+                .linkedLibrary("la_avdecc_c\(AvdeccDebugSuffix)"),
+                .linkedLibrary("la_avdecc_cxx\(AvdeccDebugSuffix)"),
                 .unsafeFlags(AvdeccUnsafeLinkerFlags),
             ] + AvdeccLinkerSettings
         ),
