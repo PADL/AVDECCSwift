@@ -20,36 +20,36 @@
 import CAVDECC
 
 public enum ExecutorError: UInt8, Error {
-    case alreadyExists = 1
-    case notFound = 2
-    case invalidProtocolInterfaceHandle = 98
-    case internalError = 99
+  case alreadyExists = 1
+  case notFound = 2
+  case invalidProtocolInterfaceHandle = 98
+  case internalError = 99
 
-    init(_ value: avdecc_executor_error_t) {
-        self = Self(rawValue: value) ?? .internalError
-    }
+  init(_ value: avdecc_executor_error_t) {
+    self = Self(rawValue: value) ?? .internalError
+  }
 }
 
 // FIXME: integrate C++ library with libdispatch
 
 public final class Executor {
-    public static let shared = try! Executor()
+  public static let shared = try! Executor()
 
-    let library = Library()
-    var handle: UnsafeMutableRawPointer!
+  let library = Library()
+  var handle: UnsafeMutableRawPointer!
 
-    public init(name: String = DefaultExecutorName) throws {
-        let err = LA_AVDECC_Executor_createQueueExecutor(name, &handle)
-        if err != 0 {
-            throw ExecutorError(err)
-        }
+  public init(name: String = DefaultExecutorName) throws {
+    let err = LA_AVDECC_Executor_createQueueExecutor(name, &handle)
+    if err != 0 {
+      throw ExecutorError(err)
     }
+  }
 
-    deinit {
-        if handle != nil {
-            LA_AVDECC_Executor_destroy(handle)
-        }
+  deinit {
+    if handle != nil {
+      LA_AVDECC_Executor_destroy(handle)
     }
+  }
 }
 
 public let DefaultExecutorName = "avdecc::protocol::PI"

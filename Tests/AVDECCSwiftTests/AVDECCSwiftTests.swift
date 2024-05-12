@@ -18,24 +18,24 @@
 import XCTest
 
 final class AVDECCSwiftTests: XCTestCase {
-    func test61883_6FormatString() async throws {
-        let formatString = EntityModelStreamFormat(format: 0x00A0_0208_4000_0800)
-        XCTAssertEqual(formatString.version, .version_0)
-        XCTAssertEqual(formatString.subtype, .iec61883iidc)
-        XCTAssertEqual(formatString.isFloatingPoint, false)
-        XCTAssertEqual(formatString.sampleRate, 48000)
-        XCTAssertEqual(formatString.bitDepth, 24)
-        XCTAssertEqual(formatString.channelsPerFrame, 8)
-    }
+  func test61883_6FormatString() async throws {
+    let formatString = EntityModelStreamFormat(format: 0x00A0_0208_4000_0800)
+    XCTAssertEqual(formatString.version, .version_0)
+    XCTAssertEqual(formatString.subtype, .iec61883iidc)
+    XCTAssertEqual(formatString.isFloatingPoint, false)
+    XCTAssertEqual(formatString.sampleRate, 48000)
+    XCTAssertEqual(formatString.bitDepth, 24)
+    XCTAssertEqual(formatString.channelsPerFrame, 8)
+  }
 
-    func testAafFormatString() async throws {
-        let formatString = EntityModelStreamFormat(format: 0x0205_0220_0040_6000)
-        XCTAssertEqual(formatString.version, .version_0)
-        XCTAssertEqual(formatString.subtype, .aaf)
-        XCTAssertEqual(formatString.isFloatingPoint, false)
-        XCTAssertEqual(formatString.sampleRate, 48000)
-        XCTAssertEqual(formatString.bitDepth, 32)
-        XCTAssertEqual(formatString.channelsPerFrame, 1)
-        XCTAssertEqual(formatString.samplesPerFrame, 6)
-    }
+  func testAafFormatString() async throws {
+    let formatString = EntityModelStreamFormat(format: 0x0205_0220_0040_6000)
+    XCTAssertEqual(formatString.version, .version_0)
+    XCTAssertEqual(formatString.subtype, .aaf)
+    XCTAssertEqual(formatString.isFloatingPoint, false)
+    XCTAssertEqual(formatString.sampleRate, 48000)
+    XCTAssertEqual(formatString.bitDepth, 32)
+    XCTAssertEqual(formatString.channelsPerFrame, 1)
+    XCTAssertEqual(formatString.samplesPerFrame, 6)
+  }
 }

@@ -47,101 +47,101 @@ AvdeccLinkerSettings += [.linkedLibrary("BlocksRuntime")]
 #endif
 
 let AvdeccUnsafeLinkerFlags: [String] = [
-    "-Xlinker", "-L", "-Xlinker", AvdeccCxxLibPath,
-    "-Xlinker", "-rpath", "-Xlinker", AvdeccCxxLibPath,
-    "-Xlinker", "-L", "-Xlinker", AvdeccCLibPath,
-    "-Xlinker", "-rpath", "-Xlinker", AvdeccCLibPath,
-    "-Xlinker", "-L", "-Xlinker", AvdeccCxxControllerLibPath,
-    "-Xlinker", "-rpath", "-Xlinker", AvdeccCxxControllerLibPath,
-    "-Xlinker", "-L", "-Xlinker", AvdeccAltLibPath,
-    "-Xlinker", "-rpath", "-Xlinker", AvdeccAltLibPath,
+  "-Xlinker", "-L", "-Xlinker", AvdeccCxxLibPath,
+  "-Xlinker", "-rpath", "-Xlinker", AvdeccCxxLibPath,
+  "-Xlinker", "-L", "-Xlinker", AvdeccCLibPath,
+  "-Xlinker", "-rpath", "-Xlinker", AvdeccCLibPath,
+  "-Xlinker", "-L", "-Xlinker", AvdeccCxxControllerLibPath,
+  "-Xlinker", "-rpath", "-Xlinker", AvdeccCxxControllerLibPath,
+  "-Xlinker", "-L", "-Xlinker", AvdeccAltLibPath,
+  "-Xlinker", "-rpath", "-Xlinker", AvdeccAltLibPath,
 ]
 
 let package = Package(
-    name: "AVDECCSwift",
-    platforms: [
-        .macOS(.v13),
-    ],
-    products: [
-        .library(
-            name: "AVDECCSwift",
-            type: .dynamic, // build dynamic library to comply with LGPL
-            targets: ["AVDECCSwift"]
-        ),
-    ],
-    dependencies: [
-        // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.0"),
-        // .package(url: "https://github.com/lhoward/AsyncExtensions", branch: "linux"),
-    ],
-    targets: [
-        .binaryTarget(
-            name: "avdecc",
-            path: "avdecc.artifactbundle.zip"
+  name: "AVDECCSwift",
+  platforms: [
+    .macOS(.v13),
+  ],
+  products: [
+    .library(
+      name: "AVDECCSwift",
+      type: .dynamic, // build dynamic library to comply with LGPL
+      targets: ["AVDECCSwift"]
+    ),
+  ],
+  dependencies: [
+    // Dependencies declare other packages that this package depends on.
+    .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.0"),
+    // .package(url: "https://github.com/lhoward/AsyncExtensions", branch: "linux"),
+  ],
+  targets: [
+    .binaryTarget(
+      name: "avdecc",
+      path: "avdecc.artifactbundle.zip"
 //            url: "https://github.com/PADL/AVDECCSwift/raw/main/avdecc.artifactbundle.zip",
 //            checksum: "8eeb26c186329c7849c18a14837b6d78cea5d9aecb3e7fbb720274869e79a810"
-        ),
-        .target(
-            name: "CAVDECC",
-            dependencies: [
-                "avdecc",
-            ],
-            exclude: [
-                "avdecc/\(AvdeccBuildDir)",
-                "avdecc/examples",
-                "avdecc/externals",
-                "avdecc/resources",
-                "avdecc/src",
-                "avdecc/scripts",
-                "avdecc/tests",
-            ],
-            cSettings: [
-                .headerSearchPath("avdecc/include"),
-                .headerSearchPath("avdecc/externals/nih/include"),
-            ],
-            cxxSettings: [
-                .headerSearchPath("avdecc/include"),
-                .headerSearchPath("avdecc/externals/nih/include"),
-            ],
-            swiftSettings: [
-            ],
-            linkerSettings: [
-                .linkedLibrary("la_avdecc_c\(AvdeccDebugSuffix)"),
-                .linkedLibrary("la_avdecc_cxx\(AvdeccDebugSuffix)"),
-                .unsafeFlags(AvdeccUnsafeLinkerFlags),
-            ] + AvdeccLinkerSettings
-        ),
-        .target(
-            name: "AVDECCSwift",
-            dependencies: [
-                "CAVDECC",
-            ],
-            cSettings: [
-                .headerSearchPath("../CAVDECC/avdecc/include"),
-                .headerSearchPath("../CAVDECC/avdecc/externals/nih/include"),
-            ],
-            cxxSettings: [
-                .headerSearchPath("../CAVDECC/avdecc/include"),
-                .headerSearchPath("../CAVDECC/avdecc/externals/nih/include"),
-            ],
-            swiftSettings: [
-            ]
-        ),
-        .executableTarget(
-            name: "Discovery",
-            dependencies: [
-                "AVDECCSwift",
-                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
-            ],
-            path: "Examples/Discovery"
-        ),
-        .testTarget(
-            name: "AVDECCSwiftTests",
-            dependencies: [
-                .target(name: "AVDECCSwift"),
-            ]
-        ),
-    ],
-    cLanguageStandard: .c17,
-    cxxLanguageStandard: .cxx17
+    ),
+    .target(
+      name: "CAVDECC",
+      dependencies: [
+        "avdecc",
+      ],
+      exclude: [
+        "avdecc/\(AvdeccBuildDir)",
+        "avdecc/examples",
+        "avdecc/externals",
+        "avdecc/resources",
+        "avdecc/src",
+        "avdecc/scripts",
+        "avdecc/tests",
+      ],
+      cSettings: [
+        .headerSearchPath("avdecc/include"),
+        .headerSearchPath("avdecc/externals/nih/include"),
+      ],
+      cxxSettings: [
+        .headerSearchPath("avdecc/include"),
+        .headerSearchPath("avdecc/externals/nih/include"),
+      ],
+      swiftSettings: [
+      ],
+      linkerSettings: [
+        .linkedLibrary("la_avdecc_c\(AvdeccDebugSuffix)"),
+        .linkedLibrary("la_avdecc_cxx\(AvdeccDebugSuffix)"),
+        .unsafeFlags(AvdeccUnsafeLinkerFlags),
+      ] + AvdeccLinkerSettings
+    ),
+    .target(
+      name: "AVDECCSwift",
+      dependencies: [
+        "CAVDECC",
+      ],
+      cSettings: [
+        .headerSearchPath("../CAVDECC/avdecc/include"),
+        .headerSearchPath("../CAVDECC/avdecc/externals/nih/include"),
+      ],
+      cxxSettings: [
+        .headerSearchPath("../CAVDECC/avdecc/include"),
+        .headerSearchPath("../CAVDECC/avdecc/externals/nih/include"),
+      ],
+      swiftSettings: [
+      ]
+    ),
+    .executableTarget(
+      name: "Discovery",
+      dependencies: [
+        "AVDECCSwift",
+        .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+      ],
+      path: "Examples/Discovery"
+    ),
+    .testTarget(
+      name: "AVDECCSwiftTests",
+      dependencies: [
+        .target(name: "AVDECCSwift"),
+      ]
+    ),
+  ],
+  cLanguageStandard: .c17,
+  cxxLanguageStandard: .cxx17
 )

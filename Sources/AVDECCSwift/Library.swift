@@ -20,26 +20,26 @@
 import CAVDECC
 
 final class Library {
-    static var shared = Library()
+  static var shared = Library()
 
-    private static func isCompatibleWithInterfaceVersion(_ version: Int32) -> Bool {
-        LA_AVDECC_isCompatibleWithInterfaceVersion(avdecc_interface_version_t(version)) != 0
-    }
+  private static func isCompatibleWithInterfaceVersion(_ version: Int32) -> Bool {
+    LA_AVDECC_isCompatibleWithInterfaceVersion(avdecc_interface_version_t(version)) != 0
+  }
 
-    public static var interfaceVersion: avdecc_interface_version_t {
-        LA_AVDECC_getInterfaceVersion()
-    }
+  public static var interfaceVersion: avdecc_interface_version_t {
+    LA_AVDECC_getInterfaceVersion()
+  }
 
-    public static var version: String {
-        String(cString: LA_AVDECC_getVersion())
-    }
+  public static var version: String {
+    String(cString: LA_AVDECC_getVersion())
+  }
 
-    init() {
-        precondition(Self.isCompatibleWithInterfaceVersion(LA_AVDECC_InterfaceVersion))
-        LA_AVDECC_initialize()
-    }
+  init() {
+    precondition(Self.isCompatibleWithInterfaceVersion(LA_AVDECC_InterfaceVersion))
+    LA_AVDECC_initialize()
+  }
 
-    deinit {
-        LA_AVDECC_uninitialize()
-    }
+  deinit {
+    LA_AVDECC_uninitialize()
+  }
 }
