@@ -295,7 +295,7 @@ public final class ProtocolInterface {
         return
       }
 
-      let err = handler(self.handle) { value in
+      let err = handler(handle) { value in
         guard let value else {
           continuation.resume(throwing: ProtocolInterfaceError.internalError)
           return

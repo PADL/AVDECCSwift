@@ -201,14 +201,14 @@ public struct EntityModelStreamFormat: CustomStringConvertible, Equatable, Hasha
 
     public var sampleRate: Int? {
       switch self {
-      case .fs32000: return 32000
-      case .fs44100: return 44100
-      case .fs48000: return 48000
-      case .fs88200: return 88200
-      case .fs96000: return 96000
-      case .fs176400: return 176_400
-      case .fs192000: return 192_000
-      default: return nil
+      case .fs32000: 32000
+      case .fs44100: 44100
+      case .fs48000: 48000
+      case .fs88200: 88200
+      case .fs96000: 96000
+      case .fs176400: 176_400
+      case .fs192000: 192_000
+      default: nil
       }
     }
   }
@@ -311,11 +311,11 @@ public struct EntityModelStreamFormat: CustomStringConvertible, Equatable, Hasha
 
     public var bitDepth: Int? {
       switch self {
-      case .float32Bit: return 32
-      case .int32Bit: return 32
-      case .int24Bit: return 24
-      case .int16Bit: return 16
-      default: return nil
+      case .float32Bit: 32
+      case .int32Bit: 32
+      case .int24Bit: 24
+      case .int16Bit: 16
+      default: nil
       }
     }
   }
@@ -356,17 +356,17 @@ public struct EntityModelStreamFormat: CustomStringConvertible, Equatable, Hasha
 
     public var sampleRate: Int? {
       switch self {
-      case .fs8000: return 8000
-      case .fs16000: return 16000
-      case .fs32000: return 32000
-      case .fs44100: return 44100
-      case .fs48000: return 48000
-      case .fs88200: return 88200
-      case .fs96000: return 96000
-      case .fs176400: return 176_400
-      case .fs192000: return 192_000
-      case .fs24000: return 24000
-      default: return nil
+      case .fs8000: 8000
+      case .fs16000: 16000
+      case .fs32000: 32000
+      case .fs44100: 44100
+      case .fs48000: 48000
+      case .fs88200: 88200
+      case .fs96000: 96000
+      case .fs176400: 176_400
+      case .fs192000: 192_000
+      case .fs24000: 24000
+      default: nil
       }
     }
   }
@@ -414,11 +414,11 @@ public struct EntityModelStreamFormat: CustomStringConvertible, Equatable, Hasha
   public var channelsPerFrame: Int? {
     switch subtype {
     case .iec61883iidc:
-      return iec61883_channelsPerFrame
+      iec61883_channelsPerFrame
     case .aaf:
-      return aafChannelsPerFrame
+      aafChannelsPerFrame
     default:
-      return nil
+      nil
     }
   }
 
@@ -439,22 +439,22 @@ public struct EntityModelStreamFormat: CustomStringConvertible, Equatable, Hasha
   public var samplesPerFrame: Int? {
     switch subtype {
     case .iec61883iidc:
-      return iec61883_samplesPerFrame
+      iec61883_samplesPerFrame
     case .aaf:
-      return aafSamplesPerFrame
+      aafSamplesPerFrame
     default:
-      return nil
+      nil
     }
   }
 
   public var isFloatingPoint: Bool {
     switch subtype {
     case .iec61883iidc:
-      return iec61883_isFloatingPoint
+      iec61883_isFloatingPoint
     case .aaf:
-      return aafIsFloatingPoint
+      aafIsFloatingPoint
     default:
-      return false
+      false
     }
   }
 

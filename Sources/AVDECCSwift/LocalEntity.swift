@@ -168,7 +168,7 @@ public final class LocalEntity {
         return
       }
 
-      let err = handler(self.handle) { status, value in
+      let err = handler(handle) { status, value in
         guard status == 0 else {
           continuation.resume(throwing: LocalEntityAemCommandStatus(status))
           return
@@ -1707,12 +1707,10 @@ public final class LocalEntity {
         entityID.bridgeToAvdeccCType(),
         avbInterfaceIndex
       ) { _, _, status, _, info in
-        let path: [UniqueIdentifier]?
-
-        if let sequence = info?.pointee.sequence {
-          path = nullTerminatedArrayToSwiftArray(sequence).map { UniqueIdentifier($0) }
+        let path: [UniqueIdentifier]? = if let sequence = info?.pointee.sequence {
+          nullTerminatedArrayToSwiftArray(sequence).map { UniqueIdentifier($0) }
         } else {
-          path = nil
+          nil
         }
         continuation(status, path)
       }
