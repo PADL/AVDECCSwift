@@ -23,7 +23,7 @@ let Architecture: String
 #if canImport(Darwin)
 Architecture = "x64_arm64"
 #elseif arch(x86_64)
-Architecture = "x86"
+Architecture = "x64"
 #elseif arch(arm64)
 Architecture = "arm64"
 #endif
