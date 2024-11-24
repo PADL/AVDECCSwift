@@ -1,0 +1,52 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  darwin:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: 🔍 Xcode Select
+        run: |
+          XCODE_PATH=`mdfind "kMDItemCFBundleIdentifier == 'com.apple.dt.Xcode' && kMDItemVersion = '16.*'" -onlyin /Applications | head -1`
+          echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> $GITHUB_ENV
+      - name: Fix permissions
+        run: chown -R $(id -u):$(id -g) $PWD
+      - name: Checkout submodules
+        run: |
+          git submodule init && git submodule update
+          (cd Sources/CAVDECC/avdecc && git submodule init && git submodule update)
+      - name: Version
+        run: swift --version
+      - name: Build
+        run: swift build
+      - name: Test
+        run: swift test
+
+  linux:
+    runs-on: ubuntu-24.04
+    container: swift:6.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Packages
+        run: |
+          apt-get update
+          apt-get install -y libpcap-dev
+      - name: Fix permissions
+        run: chown -R $(id -u):$(id -g) $PWD
+      - name: Checkout submodules
+        run: |
+          git submodule init && git submodule update
+          (cd Sources/CAVDECC/avdecc && git submodule init && git submodule update)
+      - name: Version
+        run: swift --version
+      - name: Build
+        run: swift build --build-tests
+      - name: Test
+        run: swift test --skip-build
