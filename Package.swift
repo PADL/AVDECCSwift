@@ -4,11 +4,7 @@ import Foundation
 import PackageDescription
 
 // FIXME: make BuildConfigurationurable
-#if os(Linux)
-let BuildConfiguration = "debug"
-#else
 let BuildConfiguration = "release"
-#endif
 
 let Platform: String
 
