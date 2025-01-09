@@ -6,11 +6,11 @@
             "version": "3.4.1",
             "variants": [
                {
-                    "path": "_build_linux_arm64_makefiles_debug/src/controller/avdecc_controller_cxx-d.so",
+                    "path": "_build_linux_arm64_makefiles_release/src/controller/avdecc_controller_cxx-d.so",
                     "supportedTriples": ["aarch64-unknown-linux-gnu"]
                },
                {
-                    "path": "_build_linux_x86_64_makefiles_debug/src/controller/avdecc_controller_cxx-d.so",
+                    "path": "_build_linux_x86_64_makefiles_release/src/controller/avdecc_controller_cxx-d.so",
                     "supportedTriples": ["x86_64-unknown-linux-gnu"]
                },
                {
@@ -24,11 +24,11 @@
             "version": "3.4.1",
             "variants": [
                {
-                    "path": "_build_linux_arm64_makefiles_debug/src/libla_avdecc_cxx-d.so",
+                    "path": "_build_linux_arm64_makefiles_release/src/libla_avdecc_cxx-d.so",
                     "supportedTriples": ["aarch64-unknown-linux-gnu"]
                },
                {
-                    "path": "_build_linux_x86_64_makefiles_debug/src/libla_avdecc_cxx-d.so",
+                    "path": "_build_linux_x86_64_makefiles_release/src/libla_avdecc_cxx-d.so",
                     "supportedTriples": ["x86_64-unknown-linux-gnu"]
                },
                {
@@ -42,11 +42,11 @@
             "version": "3.4.1",
             "variants": [
                {
-                    "path": "_build_linux_arm64_makefiles_debug/src/bindings/c/libla_avdecc_c-d.so",
+                    "path": "_build_linux_arm64_makefiles_release/src/bindings/c/libla_avdecc_c-d.so",
                     "supportedTriples": ["aarch64-unknown-linux-gnu"]
                },
                {
-                    "path": "_build_linux_x86_64_makefiles_debug/src/bindings/c/libla_avdecc_c-d.so",
+                    "path": "_build_linux_x86_64_makefiles_release/src/bindings/c/libla_avdecc_c-d.so",
                     "supportedTriples": ["x86_64-unknown-linux-gnu"]
                },
                {

@@ -16,7 +16,7 @@ elif [ "$PLATFORM" == "Darwin" ]; then
     PLATFORM=mac;
 fi
 
-BUILDDIR="_build_${PLATFORM}_${ARCH}_makefiles_debug"
+BUILDDIR="_build_${PLATFORM}_${ARCH}_makefiles_release"
 ARTIFACTS=.build/artifacts/avdeccswift/avdecc/$BUILDDIR/src
 
 LD_LIBRARY_PATH=$ARTIFCATS:$ARTIFACTS/bindings/c:$ARTIFACTS/controller:$LD_LIBRARY_PATH
