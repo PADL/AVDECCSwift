@@ -40,7 +40,7 @@ else
     ARCHS="-arch ${ARCH}"
     CLANGDIR=/opt/swift
     SOSUFFIX=so;
-    CONFIG=debug;
+    CONFIG=release;
     BUILDCFLAGS="-I${CLANGDIR}/usr/lib/swift -fblocks"
     BUILDLDFLAGS_SHARED="-L${CLANGDIR}/usr/lib/swift/${PLATFORM} -Wl,-rpath,${CLANGDIR}/usr/lib/swift/${PLATFORM} -lBlocksRuntime"
     BUILDLDFLAGS_STATIC="-Wl,-L${CLANGDIR}/usr/lib/swift_static/${PLATFORM} -lBlocksRuntime"
@@ -59,6 +59,7 @@ rm -rf $BUILDDIR
     -a "-DCMAKE_CXX_FLAGS=${BUILDCFLAGS}" \
     -a "-DCMAKE_SHARED_LINKER_FLAGS=${BUILDLDFLAGS_SHARED}" \
     -a "-DCMAKE_STATIC_LINKER_FLAGS=" \
+    -a "-DBUILD_AVDECC_INTERFACE_PCAP_DYNAMIC_LINKING=ON" \
     -c "Unix Makefiles" \
     "-${CONFIG}" \
     -build-c
