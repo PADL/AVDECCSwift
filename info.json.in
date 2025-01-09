@@ -6,15 +6,15 @@
             "version": "3.4.1",
             "variants": [
                {
-                    "path": "_build_linux_arm64_makefiles_release/src/controller/avdecc_controller_cxx-d.so",
+                    "path": "_build_linux_arm64_makefiles_release/src/controller/avdecc_controller_cxx.so",
                     "supportedTriples": ["aarch64-unknown-linux-gnu"]
                },
                {
-                    "path": "_build_linux_x86_64_makefiles_release/src/controller/avdecc_controller_cxx-d.so",
+                    "path": "_build_linux_x86_64_makefiles_release/src/controller/avdecc_controller_cxx.so",
                     "supportedTriples": ["x86_64-unknown-linux-gnu"]
                },
                {
-                    "path": "_build_mac_x64_arm64_makefiles_release/src/controller/libla_avdecc_c-d.dylib",
+                    "path": "_build_mac_x64_arm64_makefiles_release/src/controller/libla_avdecc_c.dylib",
                     "supportedTriples": ["x86_64-apple-macosx", "arm64-apple-macosx"]
                }
             ]
@@ -24,15 +24,15 @@
             "version": "3.4.1",
             "variants": [
                {
-                    "path": "_build_linux_arm64_makefiles_release/src/libla_avdecc_cxx-d.so",
+                    "path": "_build_linux_arm64_makefiles_release/src/libla_avdecc_cxx.so",
                     "supportedTriples": ["aarch64-unknown-linux-gnu"]
                },
                {
-                    "path": "_build_linux_x86_64_makefiles_release/src/libla_avdecc_cxx-d.so",
+                    "path": "_build_linux_x86_64_makefiles_release/src/libla_avdecc_cxx.so",
                     "supportedTriples": ["x86_64-unknown-linux-gnu"]
                },
                {
-                    "path": "_build_mac_x64_arm64_makefiles_release/src/libla_avdecc_cxx-d.dylib",
+                    "path": "_build_mac_x64_arm64_makefiles_release/src/libla_avdecc_cxx.dylib",
                     "supportedTriples": ["x86_64-apple-macosx", "arm64-apple-macosx"]
                }
             ]
@@ -42,15 +42,15 @@
             "version": "3.4.1",
             "variants": [
                {
-                    "path": "_build_linux_arm64_makefiles_release/src/bindings/c/libla_avdecc_c-d.so",
+                    "path": "_build_linux_arm64_makefiles_release/src/bindings/c/libla_avdecc_c.so",
                     "supportedTriples": ["aarch64-unknown-linux-gnu"]
                },
                {
-                    "path": "_build_linux_x86_64_makefiles_release/src/bindings/c/libla_avdecc_c-d.so",
+                    "path": "_build_linux_x86_64_makefiles_release/src/bindings/c/libla_avdecc_c.so",
                     "supportedTriples": ["x86_64-unknown-linux-gnu"]
                },
                {
-                    "path": "_build_mac_x64_arm64_makefiles_release/src/bindings/c/libla_avdecc_c-d.dylib",
+                    "path": "_build_mac_x64_arm64_makefiles_release/src/bindings/c/libla_avdecc_c.dylib",
                     "supportedTriples": ["x86_64-apple-macosx", "arm64-apple-macosx"]
                }
             ]
