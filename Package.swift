@@ -94,12 +94,12 @@ let package = Package(
       cSettings: [
         .headerSearchPath("avdecc/include"),
         .headerSearchPath("avdecc/externals/nih/include"),
-	.unsafeFlags(["-fPIC"]),
+        .unsafeFlags(["-fPIC"]),
       ],
       cxxSettings: [
         .headerSearchPath("avdecc/include"),
         .headerSearchPath("avdecc/externals/nih/include"),
-	.unsafeFlags(["-fPIC"]),
+        .unsafeFlags(["-fPIC"]),
       ],
       swiftSettings: [
       ],
@@ -117,12 +117,12 @@ let package = Package(
       cSettings: [
         .headerSearchPath("../CAVDECC/avdecc/include"),
         .headerSearchPath("../CAVDECC/avdecc/externals/nih/include"),
-	.unsafeFlags(["-fPIC"]),
+        .unsafeFlags(["-fPIC"]),
       ],
       cxxSettings: [
         .headerSearchPath("../CAVDECC/avdecc/include"),
         .headerSearchPath("../CAVDECC/avdecc/externals/nih/include"),
-	.unsafeFlags(["-fPIC"]),
+        .unsafeFlags(["-fPIC"]),
       ],
     ),
     .executableTarget(
