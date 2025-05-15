@@ -124,6 +124,9 @@ let package = Package(
         .headerSearchPath("../CAVDECC/avdecc/externals/nih/include"),
         .unsafeFlags(["-fPIC"]),
       ],
+      swiftSettings: [
+        .unsafeFlags(["-Xcc", "-fPIC"]),
+      ],
     ),
     .executableTarget(
       name: "Discovery",
