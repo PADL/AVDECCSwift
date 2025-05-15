@@ -13,34 +13,34 @@ set -e
 ARCH=`arch`
 
 if [ "$ARCH" == "aarch64" ]; then
-    ARCH=arm64;
+    ARCH=arm64
 elif [ "$ARCH" == "x86_64" ]; then
-    ARCH=x64;
+    ARCH=x64
 fi
 
 PLATFORM=`uname`
 
 if [ "$PLATFORM" == "Linux" ]; then
-    PLATFORM=linux;
+    PLATFORM=linux
 elif [ "$PLATFORM" == "Darwin" ]; then
-    PLATFORM=mac;
+    PLATFORM=mac
 fi
 
 if [ "$PLATFORM" == "mac" ]; then
     export PATH="$(brew --prefix grep)/libexec/gnubin:$(brew --prefix bash)/bin:$PATH"
     ARCHS="-arch x64 -arch arm64"
     CLANGDIR=
-    SOSUFFIX=dylib;
-    ARCH=x64_arm64;
-    CONFIG=release;
-    BUILDCFLAGS="-Wno-error=deprecated-declarations -fblocks";
-    BUILDLDFLAGS_SHARED="";
-    BUILDLDFLAGS_STATIC="";
+    SOSUFFIX=dylib
+    ARCH=x64_arm64
+    CONFIG=release
+    BUILDCFLAGS="-Wno-error=deprecated-declarations -fblocks"
+    BUILDLDFLAGS_SHARED=""
+    BUILDLDFLAGS_STATIC=""
 else
     ARCHS="-arch ${ARCH}"
     CLANGDIR=/opt/swift
-    SOSUFFIX=so;
-    CONFIG=release;
+    SOSUFFIX=so
+    CONFIG=release
     BUILDCFLAGS="-I${CLANGDIR}/usr/lib/swift -fblocks"
     BUILDLDFLAGS_SHARED="-L${CLANGDIR}/usr/lib/swift/${PLATFORM} -Wl,-rpath,${CLANGDIR}/usr/lib/swift/${PLATFORM} -lBlocksRuntime"
     BUILDLDFLAGS_STATIC="-Wl,-L${CLANGDIR}/usr/lib/swift_static/${PLATFORM} -lBlocksRuntime"
