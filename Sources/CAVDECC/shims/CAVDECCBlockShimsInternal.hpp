@@ -21,9 +21,9 @@
 
 #include "CAVDECC.h"
 
-#include <la/avdecc/internals/entity.hpp>
-#include <la/avdecc/internals/aggregateEntity.hpp>
 #include "la/avdecc/avdecc.h"
+#include <la/avdecc/internals/aggregateEntity.hpp>
+#include <la/avdecc/internals/entity.hpp>
 
 #include "utils.hpp"
 
@@ -51,59 +51,61 @@ getProtocolInterface(LA_AVDECC_PROTOCOL_INTERFACE_HANDLE const handle);
 namespace CAVDECC {
 // Block smart pointer
 template <typename Ret, typename... Args> class Block final {
-    typedef Ret (^BlockType)(Args...);
+  typedef Ret (^BlockType)(Args...);
 
-  public:
-    Block(BlockType const &block) noexcept {
-        if (block)
-            ::_Block_copy(block);
-        _block = block;
+public:
+  Block(BlockType const &block) noexcept {
+    if (block)
+      ::_Block_copy(block);
+    _block = block;
+  }
+
+  ~Block() {
+    if (_block)
+      ::_Block_release(_block);
+  }
+
+  Block &operator=(const Block &block) noexcept {
+    if (this != &block) {
+      if (block._block)
+        ::_Block_copy(block._block);
+      if (_block)
+        ::_Block_release(_block);
+      _block = block._block;
     }
+    return *this;
+  }
 
-    ~Block() {
-        if (_block)
-            ::_Block_release(_block);
-    }
+  Block(const Block &block) noexcept {
+    if (block._block)
+      ::_Block_copy(block._block);
+    _block = block._block;
+  }
 
-    Block &operator=(const Block &block) noexcept {
-        if (block._block)
-            ::_Block_copy(block._block);
-        if (_block)
-            ::_Block_release(_block);
-        _block = block._block;
+  Block(Block &&dyingObj) noexcept : _block(nullptr) {
+    *this = std::move(dyingObj);
+  }
 
-        return *this;
-    }
+  Block &operator=(Block &&dyingObj) noexcept {
+    if (_block)
+      ::_Block_release(_block);
+    _block = dyingObj._block;
+    dyingObj._block = nullptr;
 
-    Block(const Block &block) noexcept {
-        if (block._block)
-            ::_Block_copy(block._block);
-        _block = block._block;
-    }
+    return *this;
+  }
 
-    Block(Block &&dyingObj) noexcept { *this = std::move(dyingObj); }
+  BlockType get() const { return _block; }
+  BlockType operator->() const { return _block; }
 
-    Block &operator=(Block &&dyingObj) noexcept {
-        if (_block)
-            ::_Block_release(_block);
-        _block = dyingObj._block;
-        dyingObj._block = nullptr;
+  operator const void *() const noexcept { return static_cast<void *>(_block); }
 
-        return *this;
-    }
+  Ret operator()(Args &&...arg) const noexcept {
+    if (_block)
+      return _block(std::forward<Args>(arg)...);
+  }
 
-    BlockType get() const { return _block; }
-    BlockType operator->() const { return _block; }
-
-    operator const void *() const noexcept {
-        return static_cast<void *>(_block);
-    }
-
-    Ret operator()(Args &&...arg) const noexcept {
-        return _block(std::forward<Args>(arg)...);
-    }
-
-  private:
-    BlockType _block;
+private:
+  BlockType _block;
 };
 } // namespace CAVDECC
