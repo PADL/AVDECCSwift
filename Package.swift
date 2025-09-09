@@ -64,6 +64,10 @@ let package = Package(
       type: .dynamic, // build dynamic library to comply with LGPL
       targets: ["AVDECCSwift"]
     ),
+    .executable(
+      name: "avdecc-discovery",
+      targets: ["Discovery"]
+    ),
   ],
   dependencies: [
     // Dependencies declare other packages that this package depends on.
