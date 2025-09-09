@@ -21,6 +21,7 @@
 
 #include "CAVDECC.h"
 
+#include <cassert>
 #include "la/avdecc/avdecc.h"
 #include <la/avdecc/internals/aggregateEntity.hpp>
 #include <la/avdecc/internals/entity.hpp>
@@ -101,8 +102,8 @@ public:
   operator const void *() const noexcept { return static_cast<void *>(_block); }
 
   Ret operator()(Args &&...arg) const noexcept {
-    if (_block)
-      return _block(std::forward<Args>(arg)...);
+    assert(_block && "Cannot call null block");
+    return _block(std::forward<Args>(arg)...);
   }
 
 private:
