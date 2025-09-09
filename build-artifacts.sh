@@ -60,6 +60,12 @@ rm -rf $BUILDDIR
     -a "-DCMAKE_SHARED_LINKER_FLAGS=${BUILDLDFLAGS_SHARED}" \
     -a "-DCMAKE_STATIC_LINKER_FLAGS=" \
     -a "-DBUILD_AVDECC_INTERFACE_PCAP_DYNAMIC_LINKING=ON" \
+    -a "-DENABLE_AVDECC_FEATURE_JSON=OFF" \
+    -a "-DBUILD_AVDECC_LIB_STATIC_RT_SHARED=FALSE" \
+    -a "-DINSTALL_AVDECC_LIB_STATIC=FALSE" \
+    -a "-DBUILD_AVDECC_CONTROLLER=TRUE" \
+    -a "-DBUILD_AVDECC_EXAMPLES=FALSE" \
+    -a "-DBUILD_AVDECC_TESTS=FALSE" \
     -c "Unix Makefiles" \
     "-${CONFIG}" \
     -build-c
@@ -73,4 +79,3 @@ zip --symlinks -r ../../../avdecc.artifactbundle.zip info.json include \
     $BUILDDIR/src/controller/libla_avdecc_controller_cxx* \
     $BUILDDIR/src/bindings/c/libla_avdecc_c* \
     $BUILDDIR/src/libla_avdecc_cxx*
-
