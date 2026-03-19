@@ -246,7 +246,7 @@ public struct EntityModelStreamFormat: CustomStringConvertible, Equatable, Hasha
   }
 
   private var iec61883_6_b_nb_ut_sc_rsvd: UInt8 {
-    UInt8((format >> 24) & 0xFF)
+    UInt8((_format >> 24) & 0xFF)
   }
 
   private var iec61883_6_iec_60958_cnt: UInt8 {
