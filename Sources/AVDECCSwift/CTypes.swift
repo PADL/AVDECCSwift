@@ -246,7 +246,7 @@ public struct EntityModelStreamFormat: CustomStringConvertible, Equatable, Hasha
   }
 
   private var iec61883_6_b_nb_ut_sc_rsvd: UInt8 {
-    UInt8((format >> 24) & 0xFF)
+    UInt8((_format >> 24) & 0xFF)
   }
 
   private var iec61883_6_iec_60958_cnt: UInt8 {
@@ -1300,14 +1300,33 @@ public struct Entity: AvdeccCBridgeable, CustomStringConvertible {
     self.interfacesInformation = interfacesInformation
   }
 
-  func bridgeToAvdeccCType() -> AvdeccCType {
+  func withAvdeccCType<R>(_ body: (inout AvdeccCType) -> R) -> R {
     var entity = avdecc_entity_t()
     entity.common_information = commonInformation
-    // FIXME: interfaces next
-    if !interfacesInformation.isEmpty {
-      entity.interfaces_information = interfacesInformation.first!
+
+    guard !interfacesInformation.isEmpty else {
+      return body(&entity)
     }
-    return entity
+
+    let buffer = UnsafeMutablePointer<avdecc_entity_interface_information_t>
+      .allocate(capacity: interfacesInformation.count)
+    defer { buffer.deallocate() }
+
+    for (i, var info) in interfacesInformation.enumerated() {
+      if i + 1 < interfacesInformation.count {
+        info.next = buffer + i + 1
+      } else {
+        info.next = nil
+      }
+      buffer[i] = info
+    }
+
+    entity.interfaces_information = buffer[0]
+    return body(&entity)
+  }
+
+  func bridgeToAvdeccCType() -> AvdeccCType {
+    withAvdeccCType { $0 }
   }
 }
 
@@ -1358,13 +1377,19 @@ extension UnsafePointer {
 
 public extension String {
   init(avdeccFixedString: avdecc_fixed_string_t) {
+    let capacity = MemoryLayout<avdecc_fixed_string_t>.size
     self.init(withUnsafePointer(to: avdeccFixedString) { pointer in
       let start = pointer.propertyBasePointer(to: \.0)!
       return start.withMemoryRebound(
         to: UInt8.self,
-        capacity: MemoryLayout.size(ofValue: pointer)
-      ) {
-        String(cString: $0)
+        capacity: capacity
+      ) { ptr in
+        // Find null terminator or use full capacity
+        var len = 0
+        while len < capacity, ptr[len] != 0 {
+          len += 1
+        }
+        return String(decoding: UnsafeBufferPointer(start: ptr, count: len), as: UTF8.self)
       }
     })
   }

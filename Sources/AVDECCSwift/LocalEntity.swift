@@ -1955,8 +1955,9 @@ private func LocalEntity_onEntityOnline(
   _ entityID: avdecc_unique_identifier_t,
   _ entity: avdecc_entity_cp?
 ) {
+  guard let entity else { return }
   LocalEntity.withDelegate(handle) {
-    $0.delegate?.onEntityOnline($0, id: UniqueIdentifier(entityID), entity: Entity(entity!))
+    $0.delegate?.onEntityOnline($0, id: UniqueIdentifier(entityID), entity: Entity(entity.pointee))
   }
 }
 
@@ -1965,8 +1966,9 @@ private func LocalEntity_onEntityUpdate(
   _ entityID: avdecc_unique_identifier_t,
   _ entity: avdecc_entity_cp?
 ) {
+  guard let entity else { return }
   LocalEntity.withDelegate(handle) {
-    $0.delegate?.onEntityUpdate($0, id: UniqueIdentifier(entityID), entity: Entity(entity!))
+    $0.delegate?.onEntityUpdate($0, id: UniqueIdentifier(entityID), entity: Entity(entity.pointee))
   }
 }
 
