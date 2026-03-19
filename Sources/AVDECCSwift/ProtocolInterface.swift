@@ -396,8 +396,9 @@ private func ProtocolInterface_onLocalEntityOnline(
   _ handle: UnsafeMutableRawPointer?,
   _ entity: avdecc_entity_cp?
 ) {
+  guard let entity else { return }
   ProtocolInterface.withObserver(handle) {
-    $0.observer?.onLocalEntityOnline($0, Entity(entity!))
+    $0.observer?.onLocalEntityOnline($0, Entity(entity.pointee))
   }
 }
 
@@ -414,8 +415,9 @@ private func ProtocolInterface_onLocalEntityUpdated(
   _ handle: UnsafeMutableRawPointer?,
   _ entity: avdecc_entity_cp?
 ) {
+  guard let entity else { return }
   ProtocolInterface.withObserver(handle) {
-    $0.observer?.onLocalEntityUpdated($0, Entity(entity!))
+    $0.observer?.onLocalEntityUpdated($0, Entity(entity.pointee))
   }
 }
 
@@ -423,8 +425,9 @@ private func ProtocolInterface_onRemoteEntityOnline(
   _ handle: UnsafeMutableRawPointer?,
   _ entity: avdecc_entity_cp?
 ) {
+  guard let entity else { return }
   ProtocolInterface.withObserver(handle) {
-    $0.observer?.onRemoteEntityOnline($0, Entity(entity!))
+    $0.observer?.onRemoteEntityOnline($0, Entity(entity.pointee))
   }
 }
 
@@ -441,8 +444,9 @@ private func ProtocolInterface_onRemoteEntityUpdated(
   _ handle: UnsafeMutableRawPointer?,
   _ entity: avdecc_entity_cp?
 ) {
+  guard let entity else { return }
   ProtocolInterface.withObserver(handle) {
-    $0.observer?.onRemoteEntityUpdated($0, Entity(entity!))
+    $0.observer?.onRemoteEntityUpdated($0, Entity(entity.pointee))
   }
 }
 
