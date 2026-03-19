@@ -1377,13 +1377,19 @@ extension UnsafePointer {
 
 public extension String {
   init(avdeccFixedString: avdecc_fixed_string_t) {
+    let capacity = MemoryLayout<avdecc_fixed_string_t>.size
     self.init(withUnsafePointer(to: avdeccFixedString) { pointer in
       let start = pointer.propertyBasePointer(to: \.0)!
       return start.withMemoryRebound(
         to: UInt8.self,
-        capacity: MemoryLayout.size(ofValue: pointer)
-      ) {
-        String(cString: $0)
+        capacity: capacity
+      ) { ptr in
+        // Find null terminator or use full capacity
+        var len = 0
+        while len < capacity, ptr[len] != 0 {
+          len += 1
+        }
+        return String(decoding: UnsafeBufferPointer(start: ptr, count: len), as: UTF8.self)
       }
     })
   }
