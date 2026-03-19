@@ -1300,14 +1300,33 @@ public struct Entity: AvdeccCBridgeable, CustomStringConvertible {
     self.interfacesInformation = interfacesInformation
   }
 
-  func bridgeToAvdeccCType() -> AvdeccCType {
+  func withAvdeccCType<R>(_ body: (inout AvdeccCType) -> R) -> R {
     var entity = avdecc_entity_t()
     entity.common_information = commonInformation
-    // FIXME: interfaces next
-    if !interfacesInformation.isEmpty {
-      entity.interfaces_information = interfacesInformation.first!
+
+    guard !interfacesInformation.isEmpty else {
+      return body(&entity)
     }
-    return entity
+
+    let buffer = UnsafeMutablePointer<avdecc_entity_interface_information_t>
+      .allocate(capacity: interfacesInformation.count)
+    defer { buffer.deallocate() }
+
+    for (i, var info) in interfacesInformation.enumerated() {
+      if i + 1 < interfacesInformation.count {
+        info.next = UnsafePointer(buffer + i + 1)
+      } else {
+        info.next = nil
+      }
+      buffer[i] = info
+    }
+
+    entity.interfaces_information = buffer[0]
+    return body(&entity)
+  }
+
+  func bridgeToAvdeccCType() -> AvdeccCType {
+    withAvdeccCType { $0 }
   }
 }
 
