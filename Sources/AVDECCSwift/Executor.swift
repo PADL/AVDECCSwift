@@ -35,7 +35,7 @@ public enum ExecutorError: UInt8, Error {
 public final class Executor {
   public static let shared = try! Executor()
 
-  let library = Library()
+  let library = Library.shared
   var handle: UnsafeMutableRawPointer!
 
   public init(name: String = DefaultExecutorName) throws {
