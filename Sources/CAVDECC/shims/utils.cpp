@@ -88,8 +88,8 @@ scoped_avdecc_entity make_entity(entity::Entity const& source) noexcept
 	{
 		if (previous)
 		{
-			entity.nextInterfaces.push_front({});
-			current = &entity.nextInterfaces.front();
+			entity.nextInterfaces.push_back({});
+			current = &entity.nextInterfaces.back();
 			previous->next = current;
 		}
 		*current = make_entity_interface_information(interfaceIndex, interfaceInfo);

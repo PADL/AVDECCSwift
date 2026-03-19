@@ -1314,7 +1314,7 @@ public struct Entity: AvdeccCBridgeable, CustomStringConvertible {
 
     for (i, var info) in interfacesInformation.enumerated() {
       if i + 1 < interfacesInformation.count {
-        info.next = UnsafePointer(buffer + i + 1)
+        info.next = buffer + i + 1
       } else {
         info.next = nil
       }
