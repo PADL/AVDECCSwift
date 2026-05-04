@@ -95,15 +95,19 @@ public final class LocalEntity {
 
   private init(_ protocolInterfaceHandle: UnsafeMutableRawPointer, entity: Entity) throws {
     self.entity = entity
-    var entity = entity.bridgeToAvdeccCType()
 
-    try withLocalEntityError {
-      LA_AVDECC_LocalEntity_create(
-        protocolInterfaceHandle,
-        &entity,
-        &LocalEntity.DelegateThunk,
-        &self.handle
-      )
+    // Use withAvdeccCType so the buffer backing the interfaces_information
+    // .next chain stays live for the duration of LA_AVDECC_LocalEntity_create.
+    // bridgeToAvdeccCType would only carry the first interface.
+    try entity.withAvdeccCType { entityCType in
+      try withLocalEntityError {
+        LA_AVDECC_LocalEntity_create(
+          protocolInterfaceHandle,
+          &entityCType,
+          &LocalEntity.DelegateThunk,
+          &self.handle
+        )
+      }
     }
 
     LA_AVDECC_LocalEntity_setApplicationData(

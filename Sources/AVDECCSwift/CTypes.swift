@@ -1300,12 +1300,12 @@ public struct Entity: AvdeccCBridgeable, CustomStringConvertible {
     self.interfacesInformation = interfacesInformation
   }
 
-  func withAvdeccCType<R>(_ body: (inout AvdeccCType) -> R) -> R {
+  func withAvdeccCType<R>(_ body: (inout AvdeccCType) throws -> R) rethrows -> R {
     var entity = avdecc_entity_t()
     entity.common_information = commonInformation
 
     guard !interfacesInformation.isEmpty else {
-      return body(&entity)
+      return try body(&entity)
     }
 
     let buffer = UnsafeMutablePointer<avdecc_entity_interface_information_t>
@@ -1322,11 +1322,21 @@ public struct Entity: AvdeccCBridgeable, CustomStringConvertible {
     }
 
     entity.interfaces_information = buffer[0]
-    return body(&entity)
+    return try body(&entity)
   }
 
+  // Returns the entity by value, with at most the first interface attached.
+  // The .next chain cannot be preserved across a value return (the buffer
+  // backing it would be deallocated before the caller could read it), so any
+  // caller that needs all interfaces must use withAvdeccCType instead.
   func bridgeToAvdeccCType() -> AvdeccCType {
-    withAvdeccCType { $0 }
+    var entity = avdecc_entity_t()
+    entity.common_information = commonInformation
+    if var first = interfacesInformation.first {
+      first.next = nil
+      entity.interfaces_information = first
+    }
+    return entity
   }
 }
 
