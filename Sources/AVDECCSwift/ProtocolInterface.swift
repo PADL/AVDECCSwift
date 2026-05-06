@@ -121,7 +121,7 @@ public final class ProtocolInterface {
 
   private var executor = Executor.shared // ensure library initialized
   private var thunk = ProtocolInterface.ObserverThunk
-  let handle: UnsafeMutableRawPointer!
+  var handle: UnsafeMutableRawPointer!
 
   public var observer: ProtocolInterfaceObserver? {
     didSet {
@@ -172,12 +172,26 @@ public final class ProtocolInterface {
     )
   }
 
-  deinit {
-    if handle != nil {
-      try? shutdown()
-      LA_AVDECC_ProtocolInterface_setApplicationData(handle, nil)
-      LA_AVDECC_ProtocolInterface_destroy(handle)
+  // Tear down the C++ ProtocolInterface eagerly. Must be called during
+  // graceful shutdown rather than relying on Swift refcounts to drop to
+  // zero before exit(): otherwise the entry survives in la_avdecc's static
+  // s_ProtocolInterfaceManager and is destroyed at __cxa_finalize, where
+  // the ProtocolInterface destructor calls into ExecutorManager's static
+  // singleton — whose destructor may already have run, depending on DSO
+  // teardown order. Idempotent.
+  public func close() {
+    guard handle != nil else { return }
+    if observer != nil {
+      observer = nil
     }
+    try? shutdown()
+    LA_AVDECC_ProtocolInterface_setApplicationData(handle, nil)
+    LA_AVDECC_ProtocolInterface_destroy(handle)
+    handle = nil
+  }
+
+  deinit {
+    close()
   }
 
   public var macAddress: avdecc_mac_address_t {

@@ -120,11 +120,18 @@ public final class LocalEntity {
     try self.init(protocolInterface.handle, entity: entity)
   }
 
+  // See ProtocolInterface.close() — same rationale: eagerly remove the
+  // entry from la_avdecc's static handle map at graceful shutdown so the
+  // C++ destructor doesn't run during __cxa_finalize. Idempotent.
+  public func close() {
+    guard handle != nil else { return }
+    LA_AVDECC_LocalEntity_setApplicationData(handle, nil)
+    LA_AVDECC_LocalEntity_destroy(handle)
+    handle = nil
+  }
+
   deinit {
-    if handle != nil {
-      LA_AVDECC_LocalEntity_setApplicationData(handle, nil)
-      LA_AVDECC_LocalEntity_destroy(handle)
-    }
+    close()
   }
 
   public func enableEntityAdvertising(availableDuration: CUnsignedInt) throws {
