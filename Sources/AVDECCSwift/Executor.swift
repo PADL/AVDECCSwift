@@ -45,10 +45,18 @@ public final class Executor {
     }
   }
 
+  // Same rationale as ProtocolInterface.close(): tear down before
+  // __cxa_finalize so s_ExecutorWrapperManager is empty when its
+  // destructor runs and doesn't call back into ExecutorManager's
+  // partly-destroyed singleton. Idempotent.
+  public func close() {
+    guard handle != nil else { return }
+    LA_AVDECC_Executor_destroy(handle)
+    handle = nil
+  }
+
   deinit {
-    if handle != nil {
-      LA_AVDECC_Executor_destroy(handle)
-    }
+    close()
   }
 }
 
