@@ -68,8 +68,8 @@ public protocol LocalEntityDelegate {
   func onEntityOffline(_: LocalEntity, id: UniqueIdentifier)
 }
 
-public final class LocalEntity {
-  private static var DelegateThunk: avdecc_local_entity_controller_delegate_t = {
+public final class LocalEntity: @unchecked Sendable {
+  nonisolated(unsafe) private static var DelegateThunk: avdecc_local_entity_controller_delegate_t = {
     var thunk = avdecc_local_entity_controller_delegate_t()
 
     thunk.onTransportError = LocalEntity_onTransportError
@@ -167,7 +167,7 @@ public final class LocalEntity {
   private func invokeHandler<T>(
     _ handler: (
       _ handle: UnsafeMutableRawPointer,
-      _ continuation: @escaping (avdecc_local_entity_aem_command_status_t, T?) -> ()
+      _ continuation: @escaping (avdecc_local_entity_aem_command_status_t, sending T?) -> ()
     ) -> avdecc_local_entity_error_t
   ) async throws -> T {
     try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<

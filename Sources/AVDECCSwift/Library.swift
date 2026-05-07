@@ -20,7 +20,7 @@
 import CAVDECC
 
 final class Library {
-  static var shared = Library()
+  nonisolated(unsafe) static let shared = Library()
 
   private static func isCompatibleWithInterfaceVersion(_ version: Int32) -> Bool {
     LA_AVDECC_isCompatibleWithInterfaceVersion(avdecc_interface_version_t(version)) != 0

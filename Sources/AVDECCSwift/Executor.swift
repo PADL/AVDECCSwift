@@ -33,7 +33,7 @@ public enum ExecutorError: UInt8, Error {
 // FIXME: integrate C++ library with libdispatch
 
 public final class Executor {
-  public static let shared = try! Executor()
+  nonisolated(unsafe) public static let shared = try! Executor()
 
   let library = Library.shared
   var handle: UnsafeMutableRawPointer!

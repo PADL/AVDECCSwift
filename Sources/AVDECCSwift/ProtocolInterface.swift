@@ -297,7 +297,7 @@ public final class ProtocolInterface {
   private func invokeHandler<T>(
     _ handler: (
       _ handle: UnsafeMutableRawPointer,
-      _ continuation: @escaping (T?) -> ()
+      _ continuation: @escaping (sending T?) -> ()
     ) -> avdecc_protocol_interface_error_t
   ) async throws -> T {
     try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
