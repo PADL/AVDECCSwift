@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023, PADL Software Pty Ltd
+ * Copyright (C) 2023-2026, PADL Software Pty Ltd
  *
  * This file is part of AVDECCSwift.
  *
@@ -17,29 +17,20 @@
  * along with AVDECCSwift.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import CAVDECC
+internal import CxxAVDECC
 
 final class Library {
   nonisolated(unsafe) static let shared = Library()
 
-  private static func isCompatibleWithInterfaceVersion(_ version: Int32) -> Bool {
-    LA_AVDECC_isCompatibleWithInterfaceVersion(avdecc_interface_version_t(version)) != 0
+  static var interfaceVersion: UInt32 {
+    la.avdecc.getInterfaceVersion()
   }
 
-  public static var interfaceVersion: avdecc_interface_version_t {
-    LA_AVDECC_getInterfaceVersion()
-  }
-
-  public static var version: String {
-    String(cString: LA_AVDECC_getVersion())
+  static var version: String {
+    String(la.avdecc.getVersion())
   }
 
   init() {
-    precondition(Self.isCompatibleWithInterfaceVersion(LA_AVDECC_InterfaceVersion))
-    LA_AVDECC_initialize()
-  }
-
-  deinit {
-    LA_AVDECC_uninitialize()
+    precondition(la.avdecc.isCompatibleWithInterfaceVersion(la.avdecc.InterfaceVersion))
   }
 }

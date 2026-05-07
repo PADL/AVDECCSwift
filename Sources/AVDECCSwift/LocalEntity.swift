@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023-2024, PADL Software Pty Ltd
+ * Copyright (C) 2023-2026, PADL Software Pty Ltd
  *
  * This file is part of AVDECCSwift.
  *
@@ -17,20 +17,33 @@
  * along with AVDECCSwift.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import CAVDECC
+internal import CxxAVDECC
 
-public enum LocalEntityError: UInt8, Error {
-  case invalidParameters = 1
-  case duplicateLocalIdentityID = 2
-  case invalidEntityHandle = 98
-  case internalError = 99
+/// Error thrown by `LocalEntity` factories. Distinct type from
+/// `ProtocolInterfaceError` so callers can `catch let e as LocalEntityError`
+/// — but its `code` field is meaningful (and useful for dispatch on
+/// `.duplicateLocalEntityID` etc.) because la_avdecc's
+/// `registerLocalEntity` throws via the ProtocolInterface::Exception
+/// hierarchy. Carries the same shape as the other AVDECCSwift error
+/// types — see `AvdeccCapturedError`.
+public struct LocalEntityError: AvdeccCapturedError {
+  public let code: ProtocolInterfaceErrorCode
+  public let message: String
 
-  init(_ error: avdecc_local_entity_error_t) {
-    self = Self(rawValue: error) ?? .internalError
+  init(_ captured: AVDECCSwift.CapturedException) {
+    code = ProtocolInterfaceErrorCode(rawValue: captured.protocolInterfaceErrorCode)
+      ?? .internalError
+    message = String(captured.message)
+  }
+
+  init(code: ProtocolInterfaceErrorCode, message: String = "") {
+    self.code = code
+    self.message = message
   }
 }
 
 public enum LocalEntityAemCommandStatus: UInt16, Error {
+  case success = 0
   case notImplemented = 1
   case noSuchDescriptor = 2
   case lockedByOther = 3
@@ -38,7 +51,7 @@ public enum LocalEntityAemCommandStatus: UInt16, Error {
   case notAuthenticated = 5
   case authenticationDisabled = 6
   case badArguments = 7
-  case onResources = 8
+  case noResources = 8
   case inProgress = 9
   case entityMisbehaving = 10
   case notSupported = 11
@@ -49,1945 +62,3495 @@ public enum LocalEntityAemCommandStatus: UInt16, Error {
   case unknownEntity = 998
   case internalError = 999
 
-  init(_ status: avdecc_local_entity_aem_command_status_t) {
-    self = Self(rawValue: status) ?? .internalError
+  /// Lossy init: unknown `raw` values collapse to `.internalError` so
+  /// callers always get a usable error rather than nil. Use the synthesised
+  /// `init(rawValue:)` if you need to distinguish "unknown value" from
+  /// the catch-all internal-error case.
+  public init(_ raw: UInt16) {
+    self = Self(rawValue: raw) ?? .internalError
   }
 }
 
-func withLocalEntityError(_ block: () -> avdecc_local_entity_error_t) throws {
-  let err = block()
-  if err != 0 {
-    throw LocalEntityError(err)
+/// ACMP status code (IEEE 1722.1-2013 §8.2.1.18). Distinct from AEM status:
+/// ACMP commands route through Talker/Listener pairs, so the failure modes
+/// reflect bandwidth/destination-MAC/connection-state issues rather than
+/// descriptor lookups.
+public enum LocalEntityControlStatus: UInt16, Error {
+  case success = 0
+  case listenerUnknownID = 1
+  case talkerUnknownID = 2
+  case talkerDestMacFail = 3
+  case talkerNoStreamIndex = 4
+  case talkerNoBandwidth = 5
+  case talkerExclusive = 6
+  case listenerTalkerTimeout = 7
+  case listenerExclusive = 8
+  case stateUnavailable = 9
+  case notConnected = 10
+  case noSuchConnection = 11
+  case couldNotSendMessage = 12
+  case talkerMisbehaving = 13
+  case listenerMisbehaving = 14
+  case controllerNotAuthorized = 16
+  case incompatibleRequest = 17
+  case notSupported = 31
+  case baseProtocolViolation = 991
+  case networkError = 995
+  case protocolError = 996
+  case timedOut = 997
+  case unknownEntity = 998
+  case internalError = 999
+
+  /// Lossy init: unknown `raw` values collapse to `.internalError` so
+  /// callers always get a usable error rather than nil. Use the synthesised
+  /// `init(rawValue:)` if you need to distinguish "unknown value" from
+  /// the catch-all internal-error case.
+  public init(_ raw: UInt16) {
+    self = Self(rawValue: raw) ?? .internalError
   }
 }
 
-public protocol LocalEntityDelegate {
+/// Milan AECP-MVU status code (Milan 1.3 §5.3.5). Codes 0..10 overlap with
+/// AEM but the upper-band reserved values differ; the library-level codes
+/// (995..999) match across all three status enums.
+public enum LocalEntityMvuCommandStatus: UInt16, Error {
+  case success = 0
+  case notImplemented = 1
+  case noSuchDescriptor = 2
+  case entityLocked = 3
+  case badArguments = 7
+  case entityMisbehaving = 10
+  case payloadTooShort = 13
+  case baseProtocolViolation = 991
+  case partialImplementation = 992
+  case busy = 993
+  case networkError = 995
+  case protocolError = 996
+  case timedOut = 997
+  case unknownEntity = 998
+  case internalError = 999
+
+  public init(_ raw: UInt16) {
+    self = Self(rawValue: raw) ?? .internalError
+  }
+}
+
+/// Notification protocol for `LocalEntity`. Receives change notifications
+/// driven by la_avdecc's controller `Delegate` — the events fire whenever
+/// another controller mutates a remote entity, sniffed ACMP traffic
+/// reveals new connection state, counters tick, or AECP statistics
+/// arrive. ~80 methods total; every one has a default no-op
+/// implementation in the extension below, so conformers only override
+/// the events they care about.
+///
+/// Threading: la_avdecc fires these on its executor / state-machine
+/// threads. `LocalEntityDelegate` is `Sendable`-compatible (held weakly
+/// by `LocalEntity`); conformers are responsible for hopping to their
+/// own actor / queue if they need to mutate UI state.
+///
+/// Lifetime of borrowed values:
+///   - `Entity`, `StreamInfo`, `AvbInfo`, `AsPath`, `StreamInputInfoEx`
+///     hold a borrowed pointer into la_avdecc; do not retain past the
+///     callback. Read what you need synchronously.
+///   - `[UInt8]` payloads (control values, packed counters) are copied
+///     out of la_avdecc's storage before delivery and are safe to keep.
+public protocol LocalEntityDelegate: AnyObject {
+  // Global / lifecycle
   func onTransportError(_: LocalEntity)
   func onEntityOnline(_: LocalEntity, id: UniqueIdentifier, entity: Entity)
   func onEntityUpdate(_: LocalEntity, id: UniqueIdentifier, entity: Entity)
   func onEntityOffline(_: LocalEntity, id: UniqueIdentifier)
+  func onEntityIdentifyNotification(_: LocalEntity, id: UniqueIdentifier)
+  func onDeregisteredFromUnsolicitedNotifications(
+    _: LocalEntity, id: UniqueIdentifier
+  )
+
+  // Sniffed ACMP — six events sharing the same shape.
+  func onControllerConnectResponseSniffed(
+    _: LocalEntity, state: StreamConnectionState,
+    status: LocalEntityControlStatus
+  )
+  func onControllerDisconnectResponseSniffed(
+    _: LocalEntity, state: StreamConnectionState,
+    status: LocalEntityControlStatus
+  )
+  func onListenerConnectResponseSniffed(
+    _: LocalEntity, state: StreamConnectionState,
+    status: LocalEntityControlStatus
+  )
+  func onListenerDisconnectResponseSniffed(
+    _: LocalEntity, state: StreamConnectionState,
+    status: LocalEntityControlStatus
+  )
+  func onGetTalkerStreamStateResponseSniffed(
+    _: LocalEntity, state: StreamConnectionState,
+    status: LocalEntityControlStatus
+  )
+  func onGetListenerStreamStateResponseSniffed(
+    _: LocalEntity, state: StreamConnectionState,
+    status: LocalEntityControlStatus
+  )
+
+  // Acquire / release / lock / unlock.
+  func onEntityAcquired(
+    _: LocalEntity, id: UniqueIdentifier, owningEntity: UniqueIdentifier,
+    descriptorType: UInt16, descriptorIndex: UInt16
+  )
+  func onEntityReleased(
+    _: LocalEntity, id: UniqueIdentifier, owningEntity: UniqueIdentifier,
+    descriptorType: UInt16, descriptorIndex: UInt16
+  )
+  func onEntityLocked(
+    _: LocalEntity, id: UniqueIdentifier, lockingEntity: UniqueIdentifier,
+    descriptorType: UInt16, descriptorIndex: UInt16
+  )
+  func onEntityUnlocked(
+    _: LocalEntity, id: UniqueIdentifier, lockingEntity: UniqueIdentifier,
+    descriptorType: UInt16, descriptorIndex: UInt16
+  )
+
+  // Configuration / clock-source / association.
+  func onConfigurationChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16
+  )
+  func onAssociationIDChanged(
+    _: LocalEntity, id: UniqueIdentifier, associationID: UniqueIdentifier
+  )
+  func onClockSourceChanged(
+    _: LocalEntity, id: UniqueIdentifier,
+    clockDomainIndex: UInt16, clockSourceIndex: UInt16
+  )
+
+  // Stream format / mappings / info / start-stop.
+  func onStreamInputFormatChanged(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16,
+    streamFormat: StreamFormat
+  )
+  func onStreamOutputFormatChanged(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16,
+    streamFormat: StreamFormat
+  )
+  func onStreamPortInputAudioMappingsChanged(
+    _: LocalEntity, id: UniqueIdentifier, streamPortIndex: UInt16,
+    numberOfMaps: UInt16, mapIndex: UInt16, mappings: [AudioMapping]
+  )
+  func onStreamPortOutputAudioMappingsChanged(
+    _: LocalEntity, id: UniqueIdentifier, streamPortIndex: UInt16,
+    numberOfMaps: UInt16, mapIndex: UInt16, mappings: [AudioMapping]
+  )
+  func onStreamPortInputAudioMappingsAdded(
+    _: LocalEntity, id: UniqueIdentifier, streamPortIndex: UInt16,
+    mappings: [AudioMapping]
+  )
+  func onStreamPortOutputAudioMappingsAdded(
+    _: LocalEntity, id: UniqueIdentifier, streamPortIndex: UInt16,
+    mappings: [AudioMapping]
+  )
+  func onStreamPortInputAudioMappingsRemoved(
+    _: LocalEntity, id: UniqueIdentifier, streamPortIndex: UInt16,
+    mappings: [AudioMapping]
+  )
+  func onStreamPortOutputAudioMappingsRemoved(
+    _: LocalEntity, id: UniqueIdentifier, streamPortIndex: UInt16,
+    mappings: [AudioMapping]
+  )
+  func onStreamInputInfoChanged(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16,
+    info: StreamInfo, fromGetResponse: Bool
+  )
+  func onStreamOutputInfoChanged(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16,
+    info: StreamInfo, fromGetResponse: Bool
+  )
+  func onStreamInputStarted(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16
+  )
+  func onStreamOutputStarted(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16
+  )
+  func onStreamInputStopped(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16
+  )
+  func onStreamOutputStopped(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16
+  )
+  /// `maxTransitTime` is in nanoseconds (la_avdecc reports
+  /// `std::chrono::nanoseconds`).
+  func onMaxTransitTimeChanged(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16,
+    maxTransitTime: UInt64
+  )
+
+  // Names — entity / config / descriptor flavours.
+  func onEntityNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, name: String
+  )
+  func onEntityGroupNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, name: String
+  )
+  func onConfigurationNameChanged(
+    _: LocalEntity, id: UniqueIdentifier,
+    configurationIndex: UInt16, name: String
+  )
+  func onAudioUnitNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    audioUnitIndex: UInt16, name: String
+  )
+  func onStreamInputNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    streamIndex: UInt16, name: String
+  )
+  func onStreamOutputNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    streamIndex: UInt16, name: String
+  )
+  func onJackInputNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    jackIndex: UInt16, name: String
+  )
+  func onJackOutputNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    jackIndex: UInt16, name: String
+  )
+  func onAvbInterfaceNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    avbInterfaceIndex: UInt16, name: String
+  )
+  func onClockSourceNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    clockSourceIndex: UInt16, name: String
+  )
+  func onMemoryObjectNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    memoryObjectIndex: UInt16, name: String
+  )
+  func onAudioClusterNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    audioClusterIndex: UInt16, name: String
+  )
+  func onControlNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    controlIndex: UInt16, name: String
+  )
+  func onClockDomainNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    clockDomainIndex: UInt16, name: String
+  )
+  func onTimingNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    timingIndex: UInt16, name: String
+  )
+  func onPtpInstanceNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    ptpInstanceIndex: UInt16, name: String
+  )
+  func onPtpPortNameChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    ptpPortIndex: UInt16, name: String
+  )
+
+  // Sampling rates.
+  func onAudioUnitSamplingRateChanged(
+    _: LocalEntity, id: UniqueIdentifier,
+    audioUnitIndex: UInt16, samplingRate: UInt32
+  )
+  func onVideoClusterSamplingRateChanged(
+    _: LocalEntity, id: UniqueIdentifier,
+    videoClusterIndex: UInt16, samplingRate: UInt32
+  )
+  func onSensorClusterSamplingRateChanged(
+    _: LocalEntity, id: UniqueIdentifier,
+    sensorClusterIndex: UInt16, samplingRate: UInt32
+  )
+
+  // Counters.
+  func onEntityCountersChanged(
+    _: LocalEntity, id: UniqueIdentifier,
+    valid: EntityCounterValidFlags, counters: DescriptorCounters
+  )
+  func onAvbInterfaceCountersChanged(
+    _: LocalEntity, id: UniqueIdentifier, avbInterfaceIndex: UInt16,
+    valid: AvbInterfaceCounterValidFlags, counters: DescriptorCounters
+  )
+  func onClockDomainCountersChanged(
+    _: LocalEntity, id: UniqueIdentifier, clockDomainIndex: UInt16,
+    valid: ClockDomainCounterValidFlags, counters: DescriptorCounters
+  )
+  func onStreamInputCountersChanged(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16,
+    valid: StreamInputCounterValidFlags, counters: DescriptorCounters
+  )
+  func onStreamOutputCountersChanged(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16,
+    valid: StreamOutputCounterValidFlags, counters: DescriptorCounters
+  )
+
+  // AVB / AS path / control values.
+  func onAvbInfoChanged(
+    _: LocalEntity, id: UniqueIdentifier, avbInterfaceIndex: UInt16,
+    info: AvbInfo
+  )
+  func onAsPathChanged(
+    _: LocalEntity, id: UniqueIdentifier, avbInterfaceIndex: UInt16,
+    asPath: AsPath
+  )
+  func onControlValuesChanged(
+    _: LocalEntity, id: UniqueIdentifier, controlIndex: UInt16,
+    packedControlValues: [UInt8]
+  )
+
+  // Memory object / operation.
+  func onMemoryObjectLengthChanged(
+    _: LocalEntity, id: UniqueIdentifier, configurationIndex: UInt16,
+    memoryObjectIndex: UInt16, length: UInt64
+  )
+  func onOperationStatus(
+    _: LocalEntity, id: UniqueIdentifier,
+    descriptorType: UInt16, descriptorIndex: UInt16,
+    operationID: UInt16, percentComplete: UInt16
+  )
+
+  // Milan MVU.
+  func onSystemUniqueIDChanged(
+    _: LocalEntity, id: UniqueIdentifier,
+    systemUniqueID: UniqueIdentifier, systemName: String
+  )
+  func onMediaClockReferenceInfoChanged(
+    _: LocalEntity, id: UniqueIdentifier, clockDomainIndex: UInt16,
+    defaultPriority: DefaultMediaClockReferencePriority,
+    info: MediaClockReferenceInfo
+  )
+  func onBindStream(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16,
+    talker: StreamIdentification, flags: BindStreamFlags
+  )
+  func onUnbindStream(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16
+  )
+  func onStreamInputInfoExChanged(
+    _: LocalEntity, id: UniqueIdentifier, streamIndex: UInt16,
+    info: StreamInputInfoEx
+  )
+
+  // Statistics.
+  func onAecpRetry(_: LocalEntity, id: UniqueIdentifier)
+  func onAecpTimeout(_: LocalEntity, id: UniqueIdentifier)
+  func onAecpUnexpectedResponse(_: LocalEntity, id: UniqueIdentifier)
+  /// `responseTime` is in milliseconds.
+  func onAecpResponseTime(
+    _: LocalEntity, id: UniqueIdentifier, responseTime: UInt64
+  )
+  func onAemAecpUnsolicitedReceived(
+    _: LocalEntity, id: UniqueIdentifier, sequenceID: UInt16
+  )
+  func onMvuAecpUnsolicitedReceived(
+    _: LocalEntity, id: UniqueIdentifier, sequenceID: UInt16
+  )
 }
 
+public extension LocalEntityDelegate {
+  // Default no-op implementations so conformers override only what they
+  // care about. The `_:` parameter labels are unused intentionally —
+  // override sites usually shadow them.
+  func onTransportError(_: LocalEntity) {}
+  func onEntityOnline(_: LocalEntity, id _: UniqueIdentifier, entity _: Entity) {}
+  func onEntityUpdate(_: LocalEntity, id _: UniqueIdentifier, entity _: Entity) {}
+  func onEntityOffline(_: LocalEntity, id _: UniqueIdentifier) {}
+  func onEntityIdentifyNotification(_: LocalEntity, id _: UniqueIdentifier) {}
+  func onDeregisteredFromUnsolicitedNotifications(
+    _: LocalEntity, id _: UniqueIdentifier
+  ) {}
+
+  func onControllerConnectResponseSniffed(
+    _: LocalEntity, state _: StreamConnectionState,
+    status _: LocalEntityControlStatus
+  ) {}
+  func onControllerDisconnectResponseSniffed(
+    _: LocalEntity, state _: StreamConnectionState,
+    status _: LocalEntityControlStatus
+  ) {}
+  func onListenerConnectResponseSniffed(
+    _: LocalEntity, state _: StreamConnectionState,
+    status _: LocalEntityControlStatus
+  ) {}
+  func onListenerDisconnectResponseSniffed(
+    _: LocalEntity, state _: StreamConnectionState,
+    status _: LocalEntityControlStatus
+  ) {}
+  func onGetTalkerStreamStateResponseSniffed(
+    _: LocalEntity, state _: StreamConnectionState,
+    status _: LocalEntityControlStatus
+  ) {}
+  func onGetListenerStreamStateResponseSniffed(
+    _: LocalEntity, state _: StreamConnectionState,
+    status _: LocalEntityControlStatus
+  ) {}
+
+  func onEntityAcquired(
+    _: LocalEntity, id _: UniqueIdentifier, owningEntity _: UniqueIdentifier,
+    descriptorType _: UInt16, descriptorIndex _: UInt16
+  ) {}
+  func onEntityReleased(
+    _: LocalEntity, id _: UniqueIdentifier, owningEntity _: UniqueIdentifier,
+    descriptorType _: UInt16, descriptorIndex _: UInt16
+  ) {}
+  func onEntityLocked(
+    _: LocalEntity, id _: UniqueIdentifier, lockingEntity _: UniqueIdentifier,
+    descriptorType _: UInt16, descriptorIndex _: UInt16
+  ) {}
+  func onEntityUnlocked(
+    _: LocalEntity, id _: UniqueIdentifier, lockingEntity _: UniqueIdentifier,
+    descriptorType _: UInt16, descriptorIndex _: UInt16
+  ) {}
+
+  func onConfigurationChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16
+  ) {}
+  func onAssociationIDChanged(
+    _: LocalEntity, id _: UniqueIdentifier, associationID _: UniqueIdentifier
+  ) {}
+  func onClockSourceChanged(
+    _: LocalEntity, id _: UniqueIdentifier,
+    clockDomainIndex _: UInt16, clockSourceIndex _: UInt16
+  ) {}
+
+  func onStreamInputFormatChanged(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16,
+    streamFormat _: StreamFormat
+  ) {}
+  func onStreamOutputFormatChanged(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16,
+    streamFormat _: StreamFormat
+  ) {}
+  func onStreamPortInputAudioMappingsChanged(
+    _: LocalEntity, id _: UniqueIdentifier, streamPortIndex _: UInt16,
+    numberOfMaps _: UInt16, mapIndex _: UInt16, mappings _: [AudioMapping]
+  ) {}
+  func onStreamPortOutputAudioMappingsChanged(
+    _: LocalEntity, id _: UniqueIdentifier, streamPortIndex _: UInt16,
+    numberOfMaps _: UInt16, mapIndex _: UInt16, mappings _: [AudioMapping]
+  ) {}
+  func onStreamPortInputAudioMappingsAdded(
+    _: LocalEntity, id _: UniqueIdentifier, streamPortIndex _: UInt16,
+    mappings _: [AudioMapping]
+  ) {}
+  func onStreamPortOutputAudioMappingsAdded(
+    _: LocalEntity, id _: UniqueIdentifier, streamPortIndex _: UInt16,
+    mappings _: [AudioMapping]
+  ) {}
+  func onStreamPortInputAudioMappingsRemoved(
+    _: LocalEntity, id _: UniqueIdentifier, streamPortIndex _: UInt16,
+    mappings _: [AudioMapping]
+  ) {}
+  func onStreamPortOutputAudioMappingsRemoved(
+    _: LocalEntity, id _: UniqueIdentifier, streamPortIndex _: UInt16,
+    mappings _: [AudioMapping]
+  ) {}
+  func onStreamInputInfoChanged(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16,
+    info _: StreamInfo, fromGetResponse _: Bool
+  ) {}
+  func onStreamOutputInfoChanged(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16,
+    info _: StreamInfo, fromGetResponse _: Bool
+  ) {}
+  func onStreamInputStarted(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16
+  ) {}
+  func onStreamOutputStarted(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16
+  ) {}
+  func onStreamInputStopped(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16
+  ) {}
+  func onStreamOutputStopped(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16
+  ) {}
+  func onMaxTransitTimeChanged(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16,
+    maxTransitTime _: UInt64
+  ) {}
+
+  func onEntityNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, name _: String
+  ) {}
+  func onEntityGroupNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, name _: String
+  ) {}
+  func onConfigurationNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier,
+    configurationIndex _: UInt16, name _: String
+  ) {}
+  func onAudioUnitNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    audioUnitIndex _: UInt16, name _: String
+  ) {}
+  func onStreamInputNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    streamIndex _: UInt16, name _: String
+  ) {}
+  func onStreamOutputNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    streamIndex _: UInt16, name _: String
+  ) {}
+  func onJackInputNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    jackIndex _: UInt16, name _: String
+  ) {}
+  func onJackOutputNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    jackIndex _: UInt16, name _: String
+  ) {}
+  func onAvbInterfaceNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    avbInterfaceIndex _: UInt16, name _: String
+  ) {}
+  func onClockSourceNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    clockSourceIndex _: UInt16, name _: String
+  ) {}
+  func onMemoryObjectNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    memoryObjectIndex _: UInt16, name _: String
+  ) {}
+  func onAudioClusterNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    audioClusterIndex _: UInt16, name _: String
+  ) {}
+  func onControlNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    controlIndex _: UInt16, name _: String
+  ) {}
+  func onClockDomainNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    clockDomainIndex _: UInt16, name _: String
+  ) {}
+  func onTimingNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    timingIndex _: UInt16, name _: String
+  ) {}
+  func onPtpInstanceNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    ptpInstanceIndex _: UInt16, name _: String
+  ) {}
+  func onPtpPortNameChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    ptpPortIndex _: UInt16, name _: String
+  ) {}
+
+  func onAudioUnitSamplingRateChanged(
+    _: LocalEntity, id _: UniqueIdentifier,
+    audioUnitIndex _: UInt16, samplingRate _: UInt32
+  ) {}
+  func onVideoClusterSamplingRateChanged(
+    _: LocalEntity, id _: UniqueIdentifier,
+    videoClusterIndex _: UInt16, samplingRate _: UInt32
+  ) {}
+  func onSensorClusterSamplingRateChanged(
+    _: LocalEntity, id _: UniqueIdentifier,
+    sensorClusterIndex _: UInt16, samplingRate _: UInt32
+  ) {}
+
+  func onEntityCountersChanged(
+    _: LocalEntity, id _: UniqueIdentifier,
+    valid _: EntityCounterValidFlags, counters _: DescriptorCounters
+  ) {}
+  func onAvbInterfaceCountersChanged(
+    _: LocalEntity, id _: UniqueIdentifier, avbInterfaceIndex _: UInt16,
+    valid _: AvbInterfaceCounterValidFlags, counters _: DescriptorCounters
+  ) {}
+  func onClockDomainCountersChanged(
+    _: LocalEntity, id _: UniqueIdentifier, clockDomainIndex _: UInt16,
+    valid _: ClockDomainCounterValidFlags, counters _: DescriptorCounters
+  ) {}
+  func onStreamInputCountersChanged(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16,
+    valid _: StreamInputCounterValidFlags, counters _: DescriptorCounters
+  ) {}
+  func onStreamOutputCountersChanged(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16,
+    valid _: StreamOutputCounterValidFlags, counters _: DescriptorCounters
+  ) {}
+
+  func onAvbInfoChanged(
+    _: LocalEntity, id _: UniqueIdentifier, avbInterfaceIndex _: UInt16,
+    info _: AvbInfo
+  ) {}
+  func onAsPathChanged(
+    _: LocalEntity, id _: UniqueIdentifier, avbInterfaceIndex _: UInt16,
+    asPath _: AsPath
+  ) {}
+  func onControlValuesChanged(
+    _: LocalEntity, id _: UniqueIdentifier, controlIndex _: UInt16,
+    packedControlValues _: [UInt8]
+  ) {}
+
+  func onMemoryObjectLengthChanged(
+    _: LocalEntity, id _: UniqueIdentifier, configurationIndex _: UInt16,
+    memoryObjectIndex _: UInt16, length _: UInt64
+  ) {}
+  func onOperationStatus(
+    _: LocalEntity, id _: UniqueIdentifier,
+    descriptorType _: UInt16, descriptorIndex _: UInt16,
+    operationID _: UInt16, percentComplete _: UInt16
+  ) {}
+
+  func onSystemUniqueIDChanged(
+    _: LocalEntity, id _: UniqueIdentifier,
+    systemUniqueID _: UniqueIdentifier, systemName _: String
+  ) {}
+  func onMediaClockReferenceInfoChanged(
+    _: LocalEntity, id _: UniqueIdentifier, clockDomainIndex _: UInt16,
+    defaultPriority _: DefaultMediaClockReferencePriority,
+    info _: MediaClockReferenceInfo
+  ) {}
+  func onBindStream(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16,
+    talker _: StreamIdentification, flags _: BindStreamFlags
+  ) {}
+  func onUnbindStream(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16
+  ) {}
+  func onStreamInputInfoExChanged(
+    _: LocalEntity, id _: UniqueIdentifier, streamIndex _: UInt16,
+    info _: StreamInputInfoEx
+  ) {}
+
+  func onAecpRetry(_: LocalEntity, id _: UniqueIdentifier) {}
+  func onAecpTimeout(_: LocalEntity, id _: UniqueIdentifier) {}
+  func onAecpUnexpectedResponse(_: LocalEntity, id _: UniqueIdentifier) {}
+  func onAecpResponseTime(
+    _: LocalEntity, id _: UniqueIdentifier, responseTime _: UInt64
+  ) {}
+  func onAemAecpUnsolicitedReceived(
+    _: LocalEntity, id _: UniqueIdentifier, sequenceID _: UInt16
+  ) {}
+  func onMvuAecpUnsolicitedReceived(
+    _: LocalEntity, id _: UniqueIdentifier, sequenceID _: UInt16
+  ) {}
+}
+
+/// Wraps an la_avdecc AggregateEntity (controller flavour). Backed by
+/// AVDECCSwift::LocalEntityOwner — refcounted C++ class imported via
+/// SWIFT_SHARED_REFERENCE; Swift ARC drives retain/release. The C++ wrapper
+/// exists because la_avdecc's controller::Interface uses std::function-typed
+/// AECP handlers Swift can't construct, and AggregateEntity::create takes a
+/// std::map<> Swift can't build.
 public final class LocalEntity: @unchecked Sendable {
-  nonisolated(unsafe) private static var DelegateThunk: avdecc_local_entity_controller_delegate_t = {
-    var thunk = avdecc_local_entity_controller_delegate_t()
+  let protocolInterface: ProtocolInterface
+  let owner: AVDECCSwift.LocalEntityOwner
 
-    thunk.onTransportError = LocalEntity_onTransportError
-    thunk.onEntityOnline = LocalEntity_onEntityOnline
-    thunk.onEntityUpdate = LocalEntity_onEntityUpdate
-    thunk.onEntityOffline = LocalEntity_onEntityOffline
+  /// Subscribes to la_avdecc's controller `Delegate` change-notification
+  /// stream. Setting to a non-nil value installs blocks (Block_copy'd into
+  /// C++ slots) for every event and attaches the delegate; setting to nil
+  /// detaches and clears every slot. The delegate is held weakly to avoid
+  /// retain cycles through the captured-block forwarders.
+  public weak var delegate: LocalEntityDelegate? {
+    didSet { rebindDelegate() }
+  }
 
-    return thunk
-  }()
-
-  var handle: UnsafeMutableRawPointer!
-  public let entity: Entity
-  public var delegate: LocalEntityDelegate?
-
-  static func withDelegate(
-    _ handle: UnsafeMutableRawPointer?,
-    _ body: @escaping (LocalEntity) -> ()
-  ) {
-    if let handle, let this = LA_AVDECC_LocalEntity_getApplicationData(handle) {
-      body(Unmanaged<LocalEntity>.fromOpaque(this).takeUnretainedValue())
+  public init(protocolInterface: ProtocolInterface, entityID: UniqueIdentifier) throws {
+    self.protocolInterface = protocolInterface
+    let mac = protocolInterface.macAddressBytes
+    guard mac.count == 6 else {
+      throw LocalEntityError(code: .invalidParameters, message: "interface MAC unavailable")
     }
-  }
-
-  private init(_ protocolInterfaceHandle: UnsafeMutableRawPointer, entity: Entity) throws {
-    self.entity = entity
-
-    // Use withAvdeccCType so the buffer backing the interfaces_information
-    // .next chain stays live for the duration of LA_AVDECC_LocalEntity_create.
-    // bridgeToAvdeccCType would only carry the first interface.
-    try entity.withAvdeccCType { entityCType in
-      try withLocalEntityError {
-        LA_AVDECC_LocalEntity_create(
-          protocolInterfaceHandle,
-          &entityCType,
-          &LocalEntity.DelegateThunk,
-          &self.handle
-        )
-      }
+    var captured = AVDECCSwift.CapturedException()
+    let owner: AVDECCSwift.LocalEntityOwner? = mac.withUnsafeBufferPointer { buf in
+      AVDECCSwift.LocalEntityOwner.create(
+        protocolInterface.owner, entityID.rawValue, buf.baseAddress!, &captured
+      )
     }
-
-    LA_AVDECC_LocalEntity_setApplicationData(
-      handle,
-      Unmanaged.passUnretained(self).toOpaque()
-    )
+    guard let owner else { throw LocalEntityError(captured) }
+    self.owner = owner
   }
 
-  public convenience init(protocolInterface: ProtocolInterface, entity: Entity) throws {
-    try self.init(protocolInterface.handle, entity: entity)
-  }
-
-  // See ProtocolInterface.close() — same rationale: eagerly remove the
-  // entry from la_avdecc's static handle map at graceful shutdown so the
-  // C++ destructor doesn't run during __cxa_finalize. Idempotent.
   public func close() {
-    guard handle != nil else { return }
-    LA_AVDECC_LocalEntity_setApplicationData(handle, nil)
-    LA_AVDECC_LocalEntity_destroy(handle)
-    handle = nil
+    delegate = nil
+    owner.close()
   }
 
   deinit {
-    close()
+    owner.close()
   }
 
-  public func enableEntityAdvertising(availableDuration: CUnsignedInt) throws {
-    try withLocalEntityError {
-      LA_AVDECC_LocalEntity_enableEntityAdvertising(handle, availableDuration)
-    }
+  // MARK: - Discovery + advertising
+
+  /// Begin announcing the local entity on the wire (ADP). `available-
+  /// Duration` is in 2-second units (per IEEE 1722.1 §6.2.2.6) — the
+  /// number of those units the entity will be considered alive without
+  /// re-advertising. `interfaceIndex` defaults to the global interface;
+  /// pass a specific index for multi-homed entities. Returns `true` on
+  /// success.
+  @discardableResult
+  public func enableEntityAdvertising(
+    availableDuration: UInt32 = 31, interfaceIndex: UInt16? = nil
+  ) -> Bool {
+    owner.enableEntityAdvertising(
+      availableDuration, interfaceIndex != nil, interfaceIndex ?? 0
+    )
   }
 
-  public func disableEntityAdvertising() throws {
-    try withLocalEntityError {
-      LA_AVDECC_LocalEntity_disableEntityAdvertising(handle)
-    }
+  public func disableEntityAdvertising(interfaceIndex: UInt16? = nil) {
+    owner.disableEntityAdvertising(interfaceIndex != nil, interfaceIndex ?? 0)
   }
 
-  public func discoverRemoteEntities() throws {
-    try withLocalEntityError {
-      LA_AVDECC_LocalEntity_discoverRemoteEntities(handle)
-    }
+  /// Trigger a discovery sweep (DISCOVER ADP message). Returns `false`
+  /// if the entity has been closed.
+  @discardableResult
+  public func discoverRemoteEntities() -> Bool {
+    owner.discoverRemoteEntities()
   }
 
-  public func discoverRemoteEntity(id: UniqueIdentifier) throws {
-    try withLocalEntityError {
-      LA_AVDECC_LocalEntity_discoverRemoteEntity(handle, id.id)
-    }
+  /// Trigger a directed discovery for a single entity ID.
+  @discardableResult
+  public func discoverRemoteEntity(id: UniqueIdentifier) -> Bool {
+    owner.discoverRemoteEntity(id.rawValue)
   }
 
-  public func setAutomaticDiscoveryDelay(_ millisecondsDelay: CUnsignedInt) throws {
-    try withLocalEntityError {
-      LA_AVDECC_LocalEntity_setAutomaticDiscoveryDelay(handle, millisecondsDelay)
-    }
+  /// Override the controller's default delay before re-issuing automatic
+  /// discovery sweeps.
+  public func setAutomaticDiscoveryDelay(milliseconds: UInt32) {
+    owner.setAutomaticDiscoveryDelay(milliseconds)
   }
 
-  private func invokeHandler<T>(
-    _ handler: (
-      _ handle: UnsafeMutableRawPointer,
-      _ continuation: @escaping (avdecc_local_entity_aem_command_status_t, sending T?) -> ()
-    ) -> avdecc_local_entity_error_t
-  ) async throws -> T {
-    try await withCheckedThrowingContinuation { [weak self] (continuation: CheckedContinuation<
-      T,
-      Error
-    >) in
-      guard let self else {
-        continuation.resume(throwing: LocalEntityError.internalError)
-        return
-      }
+  // MARK: - AEM commands (subset)
 
-      let err = handler(handle) { status, value in
-        guard status == 0 else {
-          continuation.resume(throwing: LocalEntityAemCommandStatus(status))
-          return
-        }
-        guard let value else {
-          continuation.resume(throwing: LocalEntityError.internalError)
-          return
-        }
-        continuation.resume(returning: value)
-      }
-      guard err == 0 else {
-        continuation.resume(throwing: LocalEntityError(err))
-        return
-      }
-    }
-  }
-
+  /// Acquire (or attempt to acquire) the target entity. `descriptorType`
+  /// / `descriptorIndex` default to 0/0 = whole entity. Throws on
+  /// failure; on success returns the entity ID that holds the
+  /// acquisition (the local controller's, when status is success).
+  @discardableResult
   public func acquireEntity(
-    id entityID: UniqueIdentifier,
-    isPersistent: Bool,
-    descriptorType: EntityModelDescriptorType,
-    descriptorIndex: EntityModelDescriptorIndex
+    id targetEntityID: UniqueIdentifier,
+    persistent: Bool = false,
+    descriptorType: UInt16 = 0,
+    descriptorIndex: UInt16 = 0
   ) async throws -> UniqueIdentifier {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_acquireEntity_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        isPersistent ? 1 : 0,
-        descriptorType.rawValue,
-        descriptorIndex
-      ) { _, _, status, owningEntity, _, _ in
-        continuation(status, UniqueIdentifier(owningEntity))
+    try await withCheckedThrowingContinuation { cont in
+      owner.acquireEntity(
+        targetEntityID.rawValue, persistent, descriptorType, descriptorIndex
+      ) { status, owning in
+        if status == 0 {
+          cont.resume(returning: UniqueIdentifier(owning))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
+  @discardableResult
   public func releaseEntity(
-    id entityID: UniqueIdentifier,
-    descriptorType: EntityModelDescriptorType,
-    descriptorIndex: EntityModelDescriptorIndex
+    id targetEntityID: UniqueIdentifier,
+    descriptorType: UInt16 = 0,
+    descriptorIndex: UInt16 = 0
   ) async throws -> UniqueIdentifier {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_releaseEntity_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        descriptorType.rawValue,
-        descriptorIndex
-      ) { _, _, status, owningEntity, _, _ in
-        continuation(status, UniqueIdentifier(owningEntity))
-      }
+    try await withCheckedThrowingContinuation { cont in
+      owner
+        .releaseEntity(targetEntityID.rawValue, descriptorType, descriptorIndex) { status, owning in
+          if status == 0 {
+            cont.resume(returning: UniqueIdentifier(owning))
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
     }
   }
 
+  @discardableResult
   public func lockEntity(
-    id entityID: UniqueIdentifier,
-    descriptorType: EntityModelDescriptorType,
-    descriptorIndex: EntityModelDescriptorIndex
+    id targetEntityID: UniqueIdentifier,
+    descriptorType: UInt16 = 0,
+    descriptorIndex: UInt16 = 0
   ) async throws -> UniqueIdentifier {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_lockEntity_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        descriptorType.rawValue,
-        descriptorIndex
-      ) { _, _, status, lockingEntity, _, _ in
-        continuation(status, UniqueIdentifier(lockingEntity))
-      }
+    try await withCheckedThrowingContinuation { cont in
+      owner
+        .lockEntity(targetEntityID.rawValue, descriptorType, descriptorIndex) { status, locking in
+          if status == 0 {
+            cont.resume(returning: UniqueIdentifier(locking))
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
     }
   }
 
+  @discardableResult
   public func unlockEntity(
-    id entityID: UniqueIdentifier,
-    descriptorType: EntityModelDescriptorType,
-    descriptorIndex: EntityModelDescriptorIndex
+    id targetEntityID: UniqueIdentifier,
+    descriptorType: UInt16 = 0,
+    descriptorIndex: UInt16 = 0
   ) async throws -> UniqueIdentifier {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_unlockEntity_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        descriptorType.rawValue,
-        descriptorIndex
-      ) { _, _, status, lockingEntity, _, _ in
-        continuation(status, UniqueIdentifier(lockingEntity))
+    try await withCheckedThrowingContinuation { cont in
+      owner
+        .unlockEntity(targetEntityID.rawValue, descriptorType, descriptorIndex) { status, locking in
+          if status == 0 {
+            cont.resume(returning: UniqueIdentifier(locking))
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
+    }
+  }
+
+  public func registerUnsolicitedNotifications(id targetEntityID: UniqueIdentifier) async throws {
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      owner.registerUnsolicitedNotifications(targetEntityID.rawValue) { status in
+        if status == 0 {
+          cont.resume()
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
-  // LA_AVDECC_LocalEntity_queryEntityAvailable
-  // LA_AVDECC_LocalEntity_queryControllerAvailable
-
-  public func registerUnsolicitedNotifications(
-    id entityID: UniqueIdentifier
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_registerUnsolicitedNotifications_block(
-        handle,
-        entityID.bridgeToAvdeccCType()
-      ) { _, _, status in
-        continuation(
-          status,
-          ()
-        )
+  public func unregisterUnsolicitedNotifications(id targetEntityID: UniqueIdentifier) async throws {
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      owner.unregisterUnsolicitedNotifications(targetEntityID.rawValue) { status in
+        if status == 0 {
+          cont.resume()
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
-  public func unregisterUnsolicitedNotifications(
-    id entityID: UniqueIdentifier
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_unregisterUnsolicitedNotifications_block(
-        handle,
-        entityID.bridgeToAvdeccCType()
-      ) { _, _, status in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
-
-  public func readEntityDescriptor(
-    id entityID: UniqueIdentifier
-  ) async throws -> EntityModelEntityDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readEntityDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType()
-      ) { _, _, status, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelEntityDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readConfigurationDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelConfigurationDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readConfigurationDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex
-      ) { _, _, status, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelConfigurationDescriptor(descriptor!.pointee) :
-            nil
-        )
-      }
-    }
-  }
-
-  public func readAudioUnitDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    audioUnitIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelAudioUnitDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readAudioUnitDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        audioUnitIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelAudioUnitDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readStreamInputDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    streamIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelStreamDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readStreamInputDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        streamIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelStreamDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readStreamOutputDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    streamIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelStreamDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readStreamOutputDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        streamIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelStreamDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readJackInputDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    jackIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelJackDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readJackInputDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        jackIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelJackDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readJackOutputDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    jackIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelJackDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readJackOutputDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        jackIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelJackDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readAvbInterfaceDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    avbInterfaceIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelAvbInterfaceDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readAvbInterfaceDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        avbInterfaceIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelAvbInterfaceDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readClockSourceDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    clockSourceIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelClockSourceDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readClockSourceDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        clockSourceIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelClockSourceDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readMemoryObjectDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    memoryObjectIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelMemoryObjectDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readMemoryObjectDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        memoryObjectIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelMemoryObjectDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readLocaleDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    localeIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelLocaleDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readLocaleDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        localeIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelLocaleDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readStringsDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    stringsIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelStringsDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readStringsDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        stringsIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelStringsDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readStreamPortInputDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    streamPortIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelStreamPortDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readStreamPortInputDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        streamPortIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelStreamPortDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readStreamPortOutputDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    streamPortIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelStreamPortDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readStreamPortOutputDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        streamPortIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelStreamPortDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readExternalPortInputDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    externalPortIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelExternalPortDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readExternalPortInputDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        externalPortIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelExternalPortDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readExternalPortOutputDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    externalPortIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelExternalPortDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readExternalPortOutputDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        externalPortIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelExternalPortDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readInternalPortInputDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    externalPortIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelInternalPortDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readInternalPortInputDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        externalPortIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelInternalPortDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readInternalPortOutputDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    externalPortIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelInternalPortDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readInternalPortOutputDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        externalPortIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelInternalPortDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readAudioClusterDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    audioClusterIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelAudioClusterDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readAudioClusterDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        audioClusterIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelAudioClusterDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readAudioMapDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    audioMapIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelAudioMapDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readAudioMapDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        audioMapIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelAudioMapDescriptor(descriptor!.pointee) : nil
-        )
-      }
-    }
-  }
-
-  public func readClockDomainDescriptor(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    clockDomainIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelClockDomainDescriptor {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_readClockDomainDescriptor_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        clockDomainIndex
-      ) { _, _, status, _, _, descriptor in
-        continuation(
-          status,
-          descriptor != nil ? EntityModelClockDomainDescriptor(descriptor!.pointee) : nil
-        )
+  /// Read the current active configuration index.
+  public func getConfiguration(id targetEntityID: UniqueIdentifier) async throws -> UInt16 {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getConfiguration(targetEntityID.rawValue) { status, idx in
+        if status == 0 {
+          cont.resume(returning: idx)
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
   public func setConfiguration(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setConfiguration_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex
-      ) { _, _, status, _ in
-        continuation(
-          status,
-          ()
-        )
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16
+  ) async throws -> UInt16 {
+    try await withCheckedThrowingContinuation { cont in
+      owner.setConfiguration(targetEntityID.rawValue, configurationIndex) { status, idx in
+        if status == 0 {
+          cont.resume(returning: idx)
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
-  public func getConfiguration(
-    id entityID: UniqueIdentifier
-  ) async throws -> EntityModelDescriptorIndex {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getConfiguration_block(
-        handle,
-        entityID.bridgeToAvdeccCType()
-      ) { _, _, status, index in
-        continuation(
-          status,
-          index
-        )
+  public func setEntityName(id targetEntityID: UniqueIdentifier, to name: String) async throws {
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      var name = name
+      name.withUTF8 { utf8 in
+        owner.setEntityName(
+          targetEntityID.rawValue, UnsafeRawPointer(utf8.baseAddress), utf8.count
+        ) { status in
+          if status == 0 {
+            cont.resume()
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
       }
     }
   }
 
-  public func setStreamInputFormat(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex,
-    streamFormat: EntityModelStreamFormat
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setStreamInputFormat_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex,
-        streamFormat._format
-      ) { _, _, status, _, _ in
-        continuation(
-          status,
-          ()
-        )
+  public func setEntityGroupName(id targetEntityID: UniqueIdentifier, name: String) async throws {
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      var name = name
+      name.withUTF8 { utf8 in
+        owner.setEntityGroupName(
+          targetEntityID.rawValue, UnsafeRawPointer(utf8.baseAddress), utf8.count
+        ) { status in
+          if status == 0 {
+            cont.resume()
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
       }
     }
   }
 
-  public func getStreamInputFormat(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelStreamFormat {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getStreamInputFormat_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex
-      ) { _, _, status, _, format in
-        continuation(
-          status,
-          EntityModelStreamFormat(format)
-        )
-      }
-    }
-  }
-
-  public func setStreamOutputFormat(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex,
-    streamFormat: EntityModelStreamFormat
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setStreamOutputFormat_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex,
-        streamFormat._format
-      ) { _, _, status, _, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
-
-  public func getStreamOutputFormat(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelStreamFormat {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getStreamOutputFormat_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex
-      ) { _, _, status, _, format in
-        continuation(
-          status,
-          EntityModelStreamFormat(format)
-        )
-      }
-    }
-  }
-
-  public func getStreamPortInputAudioMap(
-    id entityID: UniqueIdentifier,
-    streamPortIndex: EntityModelDescriptorIndex,
-    mapIndex: EntityModelDescriptorIndex
-  ) async throws -> [EntityModelAudioMapping] {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getStreamPortInputAudioMap_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamPortIndex,
-        mapIndex
-      ) { _, _, status, _, numberOfMaps, _, mappings in
-        continuation(
-          status,
-          EntityModelAudioMapDescriptor(numberOfMaps: numberOfMaps, mappings).mappings
-        )
-      }
-    }
-  }
-
-  public func getStreamPortOutputAudioMap(
-    id entityID: UniqueIdentifier,
-    streamPortIndex: EntityModelDescriptorIndex,
-    mapIndex: EntityModelDescriptorIndex
-  ) async throws -> [EntityModelAudioMapping] {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getStreamPortOutputAudioMap_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamPortIndex,
-        mapIndex
-      ) { _, _, status, _, numberOfMaps, _, mappings in
-        continuation(
-          status,
-          EntityModelAudioMapDescriptor(numberOfMaps: numberOfMaps, mappings).mappings
-        )
-      }
-    }
-  }
-
-  private func withStreamPortAudioMappings(
-    id entityID: UniqueIdentifier,
-    streamPortIndex: EntityModelDescriptorIndex,
-    mappings: [EntityModelAudioMapping],
-    _ block: (
-      _ handle: UnsafeMutableRawPointer,
-      _ entityID: avdecc_unique_identifier_t,
-      _ streamPortIndex: EntityModelDescriptorIndex,
-      _ mappings: UnsafePointer<avdecc_entity_model_audio_mapping_cp?>,
-      _ block: @escaping avdecc_local_entity_add_stream_port_input_audio_mappings_block
-    ) -> avdecc_local_entity_error_t
-  ) async throws {
-    var _mappings = mappings.map { $0.bridgeToAvdeccCType() }
-    var pointers = [avdecc_entity_model_audio_mapping_cp?]()
-
-    for i in 0..<_mappings.count {
-      withUnsafePointer(to: &_mappings[i]) {
-        pointers.append($0) // FIXME: escaping pointer
-      }
-    }
-
-    pointers.append(nil)
-
-    try await invokeHandler { handle, continuation in
-      block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamPortIndex,
-        pointers
-      ) { _, _, status, _, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
-
-  public func addStreamPortInputAudioMappings(
-    id entityID: UniqueIdentifier,
-    streamPortIndex: EntityModelDescriptorIndex,
-    mappings: [EntityModelAudioMapping]
-  ) async throws {
-    try await withStreamPortAudioMappings(
-      id: entityID,
-      streamPortIndex: streamPortIndex,
-      mappings: mappings
-    ) { handle, entityID, streamPortIndex, mappings, block in
-      LA_AVDECC_LocalEntity_addStreamPortInputAudioMappings_block(
-        handle,
-        entityID,
-        streamPortIndex,
-        mappings,
-        block
-      )
-    }
-  }
-
-  public func addStreamPortOutputAudioMappings(
-    id entityID: UniqueIdentifier,
-    streamPortIndex: EntityModelDescriptorIndex,
-    mappings: [EntityModelAudioMapping]
-  ) async throws {
-    try await withStreamPortAudioMappings(
-      id: entityID,
-      streamPortIndex: streamPortIndex,
-      mappings: mappings
-    ) { handle, entityID, streamPortIndex, mappings, block in
-      LA_AVDECC_LocalEntity_addStreamPortOutputAudioMappings_block(
-        handle,
-        entityID,
-        streamPortIndex,
-        mappings,
-        block
-      )
-    }
-  }
-
-  public func removeStreamPortInputAudioMappings(
-    id entityID: UniqueIdentifier,
-    streamPortIndex: EntityModelDescriptorIndex,
-    mappings: [EntityModelAudioMapping]
-  ) async throws {
-    try await withStreamPortAudioMappings(
-      id: entityID,
-      streamPortIndex: streamPortIndex,
-      mappings: mappings
-    ) { handle, entityID, streamPortIndex, mappings, block in
-      LA_AVDECC_LocalEntity_removeStreamPortInputAudioMappings_block(
-        handle,
-        entityID,
-        streamPortIndex,
-        mappings,
-        block
-      )
-    }
-  }
-
-  public func removeStreamPortOutputAudioMappings(
-    id entityID: UniqueIdentifier,
-    streamPortIndex: EntityModelDescriptorIndex,
-    mappings: [EntityModelAudioMapping]
-  ) async throws {
-    try await withStreamPortAudioMappings(
-      id: entityID,
-      streamPortIndex: streamPortIndex,
-      mappings: mappings
-    ) { handle, entityID, streamPortIndex, mappings, block in
-      LA_AVDECC_LocalEntity_removeStreamPortOutputAudioMappings_block(
-        handle,
-        entityID,
-        streamPortIndex,
-        mappings,
-        block
-      )
-    }
-  }
-
-  public func setStreamInputInfo(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex,
-    streamInputInfo: EntityModelStreamInfo
-  ) async throws {
-    var streamInputInfo = streamInputInfo.bridgeToAvdeccCType()
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setStreamInputInfo_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex,
-        &streamInputInfo
-      ) { _, _, status, _, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
-
-  public func setStreamOutputInfo(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex,
-    streamOutputInfo: EntityModelStreamInfo
-  ) async throws {
-    var streamOutputInfo = streamOutputInfo.bridgeToAvdeccCType()
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setStreamOutputInfo_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex,
-        &streamOutputInfo
-      ) { _, _, status, _, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
-
-  public func getStreamInputInfo(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelStreamInfo {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getStreamInputInfo_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex
-      ) { _, _, status, _, streamInputInfo in
-        continuation(
-          status,
-          streamInputInfo != nil ? EntityModelStreamInfo(streamInputInfo!) : nil
-        )
-      }
-    }
-  }
-
-  public func getStreamOutputInfo(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelStreamInfo {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getStreamOutputInfo_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex
-      ) { _, _, status, _, streamOutputInfo in
-        continuation(
-          status,
-          streamOutputInfo != nil ? EntityModelStreamInfo(streamOutputInfo!) : nil
-        )
-      }
-    }
-  }
-
-  public func setEntityName(
-    id entityID: UniqueIdentifier,
-    to entityName: String
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setEntityName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        entityName
-      ) { _, _, status, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
-
-  public func getEntityName(
-    id entityID: UniqueIdentifier
-  ) async throws -> String {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getEntityName_block(
-        handle,
-        entityID.bridgeToAvdeccCType()
-      ) { _, _, status, entityName in
-        continuation(
-          status,
-          entityName != nil ? String(cString: entityName!) : nil
-        )
-      }
-    }
-  }
-
-  public func setEntityGroupName(
-    id entityID: UniqueIdentifier,
-    to entityGroupName: String
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setEntityGroupName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        entityGroupName
-      ) { _, _, status, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
-
-  public func getEntityGroupName(
-    id entityID: UniqueIdentifier
-  ) async throws -> String {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getEntityGroupName_block(
-        handle,
-        entityID.bridgeToAvdeccCType()
-      ) { _, _, status, entityGroupName in
-        continuation(
-          status,
-          entityGroupName != nil ? String(cString: entityGroupName!) : nil
-        )
+  public func getEntityGroupName(id targetEntityID: UniqueIdentifier) async throws -> String {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getEntityGroupName(targetEntityID.rawValue) { status, name in
+        if status == 0, let name {
+          cont.resume(returning: String(name.pointee.str()))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
   public func setConfigurationName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    to configurationName: String
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, name: String
   ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setConfigurationName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        configurationName
-      ) { _, _, status, _, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
-
-  public func getConfigurationName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex
-  ) async throws -> String {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getConfigurationName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex
-      ) { _, _, status, _, configurationName in
-        continuation(
-          status,
-          configurationName != nil ? String(cString: configurationName!) : nil
-        )
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      var name = name
+      name.withUTF8 { utf8 in
+        owner.setConfigurationName(
+          targetEntityID.rawValue, configurationIndex,
+          UnsafeRawPointer(utf8.baseAddress), utf8.count
+        ) { status in
+          if status == 0 {
+            cont.resume()
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
       }
     }
   }
 
   public func setAudioUnitName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    audioUnitIndex: EntityModelDescriptorIndex,
-    to audioUnitName: String
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setAudioUnitName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        audioUnitIndex,
-        audioUnitName
-      ) { _, _, status, _, _, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    audioUnitIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, audioUnitIndex, name) {
+    self.owner.setAudioUnitName($0, $1, $2, $3, $4, $5)
+  }}
 
   public func getAudioUnitName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    audioUnitIndex: EntityModelDescriptorIndex
-  ) async throws -> String {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getAudioUnitName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        audioUnitIndex
-      ) { _, _, status, _, _, audioUnitName in
-        continuation(
-          status,
-          audioUnitName != nil ? String(cString: audioUnitName!) : nil
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, audioUnitIndex: UInt16
+  ) async throws
+    -> String { try await _getName(targetEntityID, configurationIndex, audioUnitIndex) {
+      self.owner.getAudioUnitName($0, $1, $2, $3)
+    }}
 
   public func setStreamInputName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    streamIndex: EntityModelDescriptorIndex,
-    to streamInputName: String
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setStreamInputName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        streamIndex,
-        streamInputName
-      ) { _, _, status, _, _, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    streamIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, streamIndex, name) {
+    self.owner.setStreamInputName($0, $1, $2, $3, $4, $5)
+  }}
 
   public func getStreamInputName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    streamIndex: EntityModelDescriptorIndex
-  ) async throws -> String {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getStreamInputName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        streamIndex
-      ) { _, _, status, _, _, streamInputName in
-        continuation(
-          status,
-          streamInputName != nil ? String(cString: streamInputName!) : nil
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, streamIndex: UInt16
+  ) async throws -> String { try await _getName(targetEntityID, configurationIndex, streamIndex) {
+    self.owner.getStreamInputName($0, $1, $2, $3)
+  }}
 
   public func setStreamOutputName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    streamIndex: EntityModelDescriptorIndex,
-    to streamOutputName: String
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setStreamOutputName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        streamIndex,
-        streamOutputName
-      ) { _, _, status, _, _, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    streamIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, streamIndex, name) {
+    self.owner.setStreamOutputName($0, $1, $2, $3, $4, $5)
+  }}
 
   public func getStreamOutputName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    streamIndex: EntityModelDescriptorIndex
-  ) async throws -> String {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getStreamOutputName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        streamIndex
-      ) { _, _, status, _, _, streamOutputName in
-        continuation(
-          status,
-          streamOutputName != nil ? String(cString: streamOutputName!) : nil
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, streamIndex: UInt16
+  ) async throws -> String { try await _getName(targetEntityID, configurationIndex, streamIndex) {
+    self.owner.getStreamOutputName($0, $1, $2, $3)
+  }}
 
   public func setAvbInterfaceName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    avbInterfaceIndex: EntityModelDescriptorIndex,
-    to avbInterfaceName: String
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setAvbInterfaceName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        avbInterfaceIndex,
-        avbInterfaceName
-      ) { _, _, status, _, _, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    avbInterfaceIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, avbInterfaceIndex, name) {
+    self.owner.setAvbInterfaceName($0, $1, $2, $3, $4, $5)
+  }}
 
   public func getAvbInterfaceName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    avbInterfaceIndex: EntityModelDescriptorIndex
-  ) async throws -> String {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getAvbInterfaceName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        avbInterfaceIndex
-      ) { _, _, status, _, _, avbInterfaceName in
-        continuation(
-          status,
-          avbInterfaceName != nil ? String(cString: avbInterfaceName!) : nil
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, avbInterfaceIndex: UInt16
+  ) async throws -> String { try await _getName(
+    targetEntityID,
+    configurationIndex,
+    avbInterfaceIndex
+  ) {
+    self.owner.getAvbInterfaceName($0, $1, $2, $3)
+  }}
 
   public func setClockSourceName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    clockSourceIndex: EntityModelDescriptorIndex,
-    to clockSourceName: String
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setClockSourceName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        clockSourceIndex,
-        clockSourceName
-      ) { _, _, status, _, _, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    clockSourceIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, clockSourceIndex, name) {
+    self.owner.setClockSourceName($0, $1, $2, $3, $4, $5)
+  }}
 
   public func getClockSourceName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    clockSourceIndex: EntityModelDescriptorIndex
-  ) async throws -> String {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getClockSourceName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        clockSourceIndex
-      ) { _, _, status, _, _, clockSourceName in
-        continuation(
-          status,
-          clockSourceName != nil ? String(cString: clockSourceName!) : nil
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, clockSourceIndex: UInt16
+  ) async throws -> String { try await _getName(
+    targetEntityID,
+    configurationIndex,
+    clockSourceIndex
+  ) {
+    self.owner.getClockSourceName($0, $1, $2, $3)
+  }}
 
   public func setMemoryObjectName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    memoryObjectIndex: EntityModelDescriptorIndex,
-    to memoryObjectName: String
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setMemoryObjectName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        memoryObjectIndex,
-        memoryObjectName
-      ) { _, _, status, _, _, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    memoryObjectIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, memoryObjectIndex, name) {
+    self.owner.setMemoryObjectName($0, $1, $2, $3, $4, $5)
+  }}
 
   public func getMemoryObjectName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    memoryObjectIndex: EntityModelDescriptorIndex
-  ) async throws -> String {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getMemoryObjectName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        memoryObjectIndex
-      ) { _, _, status, _, _, memoryObjectName in
-        continuation(
-          status,
-          memoryObjectName != nil ? String(cString: memoryObjectName!) : nil
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, memoryObjectIndex: UInt16
+  ) async throws -> String { try await _getName(
+    targetEntityID,
+    configurationIndex,
+    memoryObjectIndex
+  ) {
+    self.owner.getMemoryObjectName($0, $1, $2, $3)
+  }}
 
   public func setAudioClusterName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    audioClusterIndex: EntityModelDescriptorIndex,
-    to audioClusterName: String
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setAudioClusterName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        audioClusterIndex,
-        audioClusterName
-      ) { _, _, status, _, _, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    clusterIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, clusterIndex, name) {
+    self.owner.setAudioClusterName($0, $1, $2, $3, $4, $5)
+  }}
 
   public func getAudioClusterName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    audioClusterIndex: EntityModelDescriptorIndex
-  ) async throws -> String {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getAudioClusterName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        audioClusterIndex
-      ) { _, _, status, _, _, audioClusterName in
-        continuation(
-          status,
-          audioClusterName != nil ? String(cString: audioClusterName!) : nil
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, clusterIndex: UInt16
+  ) async throws -> String { try await _getName(targetEntityID, configurationIndex, clusterIndex) {
+    self.owner.getAudioClusterName($0, $1, $2, $3)
+  }}
 
   public func setClockDomainName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    clockDomainIndex: EntityModelDescriptorIndex,
-    to clockDomainName: String
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setClockDomainName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        clockDomainIndex,
-        clockDomainName
-      ) { _, _, status, _, _, _ in
-        continuation(
-          status,
-          ()
-        )
-      }
-    }
-  }
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    clockDomainIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, clockDomainIndex, name) {
+    self.owner.setClockDomainName($0, $1, $2, $3, $4, $5)
+  }}
 
   public func getClockDomainName(
-    id entityID: UniqueIdentifier,
-    configurationIndex: EntityModelDescriptorIndex,
-    clockDomainIndex: EntityModelDescriptorIndex
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, clockDomainIndex: UInt16
+  ) async throws -> String { try await _getName(
+    targetEntityID,
+    configurationIndex,
+    clockDomainIndex
+  ) {
+    self.owner.getClockDomainName($0, $1, $2, $3)
+  }}
+
+  public func setJackInputName(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    jackIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, jackIndex, name) {
+    self.owner.setJackInputName($0, $1, $2, $3, $4, $5)
+  }}
+
+  public func getJackInputName(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, jackIndex: UInt16
+  ) async throws -> String { try await _getName(targetEntityID, configurationIndex, jackIndex) {
+    self.owner.getJackInputName($0, $1, $2, $3)
+  }}
+
+  public func setJackOutputName(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    jackIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, jackIndex, name) {
+    self.owner.setJackOutputName($0, $1, $2, $3, $4, $5)
+  }}
+
+  public func getJackOutputName(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, jackIndex: UInt16
+  ) async throws -> String { try await _getName(targetEntityID, configurationIndex, jackIndex) {
+    self.owner.getJackOutputName($0, $1, $2, $3)
+  }}
+
+  public func setControlName(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    controlIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, controlIndex, name) {
+    self.owner.setControlName($0, $1, $2, $3, $4, $5)
+  }}
+
+  public func getControlName(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, controlIndex: UInt16
+  ) async throws -> String { try await _getName(targetEntityID, configurationIndex, controlIndex) {
+    self.owner.getControlName($0, $1, $2, $3)
+  }}
+
+  public func setTimingName(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    timingIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, timingIndex, name) {
+    self.owner.setTimingName($0, $1, $2, $3, $4, $5)
+  }}
+
+  public func getTimingName(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, timingIndex: UInt16
+  ) async throws -> String { try await _getName(targetEntityID, configurationIndex, timingIndex) {
+    self.owner.getTimingName($0, $1, $2, $3)
+  }}
+
+  public func setPtpInstanceName(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    ptpInstanceIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, ptpInstanceIndex, name) {
+    self.owner.setPtpInstanceName($0, $1, $2, $3, $4, $5)
+  }}
+
+  public func getPtpInstanceName(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, ptpInstanceIndex: UInt16
+  ) async throws -> String { try await _getName(
+    targetEntityID,
+    configurationIndex,
+    ptpInstanceIndex
+  ) {
+    self.owner.getPtpInstanceName($0, $1, $2, $3)
+  }}
+
+  public func setPtpPortName(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    ptpPortIndex: UInt16, name: String
+  ) async throws { try await _setName(targetEntityID, configurationIndex, ptpPortIndex, name) {
+    self.owner.setPtpPortName($0, $1, $2, $3, $4, $5)
+  }}
+
+  public func getPtpPortName(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, ptpPortIndex: UInt16
+  ) async throws -> String { try await _getName(targetEntityID, configurationIndex, ptpPortIndex) {
+    self.owner.getPtpPortName($0, $1, $2, $3)
+  }}
+
+  // Private generic helpers — every set/get-Name pair has the same shape;
+  // hide the boilerplate behind a function-typed handle into the C++
+  // owner so each public method is one expression. Names are passed as a
+  // raw UTF-8 byte span (`String.withUTF8` borrows the native UTF-8
+  // backing storage when present, and the C++ helper drops them straight
+  // into `AvdeccFixedString(ptr, size)` — no null-terminator round-trip).
+  private func _setName(
+    _ id: UniqueIdentifier, _ configIdx: UInt16, _ descIdx: UInt16, _ name: String,
+    _ call: @escaping (
+      UInt64,
+      UInt16,
+      UInt16,
+      UnsafeRawPointer?,
+      Int,
+      @escaping (UInt16) -> ()
+    ) -> ()
+  ) async throws {
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      var mutableName = name
+      mutableName.withUTF8 { utf8 in
+        call(
+          id.rawValue,
+          configIdx,
+          descIdx,
+          UnsafeRawPointer(utf8.baseAddress),
+          utf8.count
+        ) { status in
+          if status == 0 {
+            cont.resume()
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
+      }
+    }
+  }
+
+  private func _getName(
+    _ id: UniqueIdentifier, _ configIdx: UInt16, _ descIdx: UInt16,
+    _ call: @escaping (
+      UInt64,
+      UInt16,
+      UInt16,
+      @escaping (UInt16, UnsafePointer<la.avdecc.entity.model.AvdeccFixedString>?) -> ()
+    ) -> ()
   ) async throws -> String {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getClockDomainName_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        configurationIndex,
-        clockDomainIndex
-      ) { _, _, status, _, _, clockDomainName in
-        continuation(
-          status,
-          clockDomainName != nil ? String(cString: clockDomainName!) : nil
-        )
+    try await withCheckedThrowingContinuation { cont in
+      call(id.rawValue, configIdx, descIdx) { status, name in
+        if status == 0, let name {
+          cont.resume(returning: String(name.pointee.str()))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
-  public func setAudioUnitSamplingRate(
-    id entityID: UniqueIdentifier,
-    audioUnitIndex: EntityModelDescriptorIndex,
-    samplingRate: EntityModelSamplingRate
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setAudioUnitSamplingRate_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        audioUnitIndex,
-        samplingRate
-      ) { _, _, status, _, _ in
-        continuation(status, ())
+  public func getEntityName(id targetEntityID: UniqueIdentifier) async throws -> String {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getEntityName(targetEntityID.rawValue) { status, name in
+        if status == 0, let name {
+          cont.resume(returning: String(name.pointee.str()))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
-  public func getAudioUnitSamplingRate(
-    id entityID: UniqueIdentifier,
-    audioUnitIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelSamplingRate {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getAudioUnitSamplingRate_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        audioUnitIndex
-      ) { _, _, status, _, samplingRate in
-        continuation(status, samplingRate)
-      }
-    }
-  }
-
-  public func setVideoClusterSamplingRate(
-    id entityID: UniqueIdentifier,
-    videoClusterIndex: EntityModelDescriptorIndex,
-    samplingRate: EntityModelSamplingRate
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setVideoClusterSamplingRate_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        videoClusterIndex,
-        samplingRate
-      ) { _, _, status, _, _ in
-        continuation(status, ())
-      }
-    }
-  }
-
-  public func getVideoClusterSamplingRate(
-    id entityID: UniqueIdentifier,
-    videoClusterIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelSamplingRate {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getVideoClusterSamplingRate_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        videoClusterIndex
-      ) { _, _, status, _, samplingRate in
-        continuation(status, samplingRate)
-      }
-    }
-  }
-
-  public func setSensorClusterSamplingRate(
-    id entityID: UniqueIdentifier,
-    sensorClusterIndex: EntityModelDescriptorIndex,
-    samplingRate: EntityModelSamplingRate
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setSensorClusterSamplingRate_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        sensorClusterIndex,
-        samplingRate
-      ) { _, _, status, _, _ in
-        continuation(status, ())
-      }
-    }
-  }
-
-  public func getSensorClusterSamplingRate(
-    id entityID: UniqueIdentifier,
-    sensorClusterIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelSamplingRate {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getSensorClusterSamplingRate_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        sensorClusterIndex
-      ) { _, _, status, _, samplingRate in
-        continuation(status, samplingRate)
-      }
-    }
-  }
-
-  public func setClockSource(
-    id entityID: UniqueIdentifier,
-    clockDomainIndex: EntityModelDescriptorIndex,
-    clockSourceIndex: EntityModelDescriptorIndex
-  ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_setClockSource_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        clockDomainIndex,
-        clockSourceIndex
-      ) { _, _, status, _, _ in
-        continuation(status, ())
-      }
-    }
-  }
-
-  public func getClockSource(
-    id entityID: UniqueIdentifier,
-    clockDomainIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelDescriptorIndex {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getClockSource_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        clockDomainIndex
-      ) { _, _, status, _, clockSourceIndex in
-        continuation(status, clockSourceIndex)
+  public func getConfigurationName(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16
+  ) async throws -> String {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getConfigurationName(targetEntityID.rawValue, configurationIndex) { status, name in
+        if status == 0, let name {
+          cont.resume(returning: String(name.pointee.str()))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
   public func startStreamInput(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex
+    id targetEntityID: UniqueIdentifier,
+    streamIndex: UInt16
   ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_startStreamInput_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex
-      ) { _, _, status, _ in
-        continuation(status, ())
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      owner.startStreamInput(targetEntityID.rawValue, streamIndex) { status in
+        if status == 0 {
+          cont.resume()
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
   public func startStreamOutput(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex
+    id targetEntityID: UniqueIdentifier,
+    streamIndex: UInt16
   ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_startStreamOutput_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex
-      ) { _, _, status, _ in
-        continuation(status, ())
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      owner.startStreamOutput(targetEntityID.rawValue, streamIndex) { status in
+        if status == 0 {
+          cont.resume()
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
   public func stopStreamInput(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex
+    id targetEntityID: UniqueIdentifier,
+    streamIndex: UInt16
   ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_stopStreamInput_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex
-      ) { _, _, status, _ in
-        continuation(status, ())
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      owner.stopStreamInput(targetEntityID.rawValue, streamIndex) { status in
+        if status == 0 {
+          cont.resume()
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
   public func stopStreamOutput(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex
+    id targetEntityID: UniqueIdentifier,
+    streamIndex: UInt16
   ) async throws {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_stopStreamOutput_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex
-      ) { _, _, status, _ in
-        continuation(status, ())
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      owner.stopStreamOutput(targetEntityID.rawValue, streamIndex) { status in
+        if status == 0 {
+          cont.resume()
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func getStreamInputFormat(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16
+  ) async throws -> StreamFormat {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getStreamInputFormat(targetEntityID.rawValue, streamIndex) { status, _, fmt in
+        if status == 0 {
+          cont.resume(returning: StreamFormat(format: fmt))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func setStreamInputFormat(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16,
+    to streamFormat: StreamFormat
+  ) async throws -> StreamFormat {
+    try await withCheckedThrowingContinuation { cont in
+      owner
+        .setStreamInputFormat(
+          targetEntityID.rawValue,
+          streamIndex,
+          streamFormat.format
+        ) { status, _, fmt in
+          if status == 0 {
+            cont.resume(returning: StreamFormat(format: fmt))
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
+    }
+  }
+
+  public func getStreamOutputFormat(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16
+  ) async throws -> StreamFormat {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getStreamOutputFormat(targetEntityID.rawValue, streamIndex) { status, _, fmt in
+        if status == 0 {
+          cont.resume(returning: StreamFormat(format: fmt))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func setStreamOutputFormat(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16,
+    to streamFormat: StreamFormat
+  ) async throws -> StreamFormat {
+    try await withCheckedThrowingContinuation { cont in
+      owner
+        .setStreamOutputFormat(
+          targetEntityID.rawValue,
+          streamIndex,
+          streamFormat.format
+        ) { status, _, fmt in
+          if status == 0 {
+            cont.resume(returning: StreamFormat(format: fmt))
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
+    }
+  }
+
+  public func getStreamInputInfo(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16
+  ) async throws -> StreamInfo {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getStreamInputInfo(targetEntityID.rawValue, streamIndex) { status, _, info in
+        if status == 0, let info {
+          cont.resume(returning: StreamInfo(info.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func getStreamOutputInfo(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16
+  ) async throws -> StreamInfo {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getStreamOutputInfo(targetEntityID.rawValue, streamIndex) { status, _, info in
+        if status == 0, let info {
+          cont.resume(returning: StreamInfo(info.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  /// SET_STREAM_INPUT_INFO (IEEE 1722.1-2013 §7.4.16). Writes the
+  /// changeable fields of a listener stream's `StreamInfo`. The typical
+  /// usage is read–modify–write: call `getStreamInputInfo`, mutate the
+  /// fields you care about, pass the result here. The entity echoes the
+  /// post-set state back through the response.
+  public func setStreamInputInfo(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16, info: StreamInfo
+  ) async throws -> StreamInfo {
+    try await _setStreamInfo(id: targetEntityID, streamIndex: streamIndex, info: info) {
+      tid, si, fmt, flags, sid, lat, mac, vlan, cb in
+      self.owner.setStreamInputInfo(tid, si, fmt, flags, sid, lat, mac, vlan, cb)
+    }
+  }
+
+  /// SET_STREAM_OUTPUT_INFO (IEEE 1722.1-2013 §7.4.16). Talker-side
+  /// counterpart to `setStreamInputInfo`.
+  public func setStreamOutputInfo(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16, info: StreamInfo
+  ) async throws -> StreamInfo {
+    try await _setStreamInfo(id: targetEntityID, streamIndex: streamIndex, info: info) {
+      tid, si, fmt, flags, sid, lat, mac, vlan, cb in
+      self.owner.setStreamOutputInfo(tid, si, fmt, flags, sid, lat, mac, vlan, cb)
+    }
+  }
+
+  /// Shared body for the input/output `setStreamInfo` pair. Pins the
+  /// six-byte MAC array via `withUnsafeBufferPointer` for the duration of
+  /// the C++ call (the helper memcpy's it before the dispatch returns), and
+  /// adapts the StreamInfo response pointer to the Swift wrapper.
+  private func _setStreamInfo(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16, info: StreamInfo,
+    _ call: (
+      UInt64, UInt16, UInt64, UInt32, UInt64, UInt32,
+      UnsafePointer<UInt8>?, UInt16,
+      @escaping (
+        UInt16,
+        UInt16,
+        UnsafePointer<la.avdecc.entity.model.StreamInfo>?
+      ) -> ()
+    ) -> ()
+  ) async throws -> StreamInfo {
+    var mac = info.streamDestMac
+    if mac.count < 6 { mac.append(contentsOf: [UInt8](repeating: 0, count: 6 - mac.count)) }
+    return try await withCheckedThrowingContinuation { cont in
+      mac.withUnsafeBufferPointer { macBuf in
+        call(
+          targetEntityID.rawValue, streamIndex,
+          info.streamFormat.format,
+          info.streamInfoFlags.rawValue,
+          info.streamID.rawValue,
+          info.msrpAccumulatedLatency,
+          macBuf.baseAddress,
+          info.streamVlanID
+        ) { status, _, result in
+          if status == 0, let result {
+            cont.resume(returning: StreamInfo(result.pointee))
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
+      }
+    }
+  }
+
+  /// Read the clock source currently selected for a clock domain.
+  public func getClockSource(
+    id targetEntityID: UniqueIdentifier, clockDomainIndex: UInt16
+  ) async throws -> UInt16 {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getClockSource(targetEntityID.rawValue, clockDomainIndex) { status, src in
+        if status == 0 {
+          cont.resume(returning: src)
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func setClockSource(
+    id targetEntityID: UniqueIdentifier, clockDomainIndex: UInt16, clockSourceIndex: UInt16
+  ) async throws -> UInt16 {
+    try await withCheckedThrowingContinuation { cont in
+      owner
+        .setClockSource(
+          targetEntityID.rawValue,
+          clockDomainIndex,
+          clockSourceIndex
+        ) { status, src in
+          if status == 0 {
+            cont.resume(returning: src)
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
+    }
+  }
+
+  /// Read the EntityDescriptor from a remote entity. The C++ block hands
+  /// back a borrowed pointer to la_avdecc's `EntityDescriptor`; we copy
+  /// the value into the Swift `EntityDescriptor` wrapper inside the
+  /// closure (while the pointer is still live) and resume the continuation
+  /// with the wrapper. The wrapper is `Sendable`, so the unsafe-pointer
+  /// gymnastics from the previous revision are no longer required.
+  public func readEntityDescriptor(id targetEntityID: UniqueIdentifier) async throws
+    -> EntityDescriptor
+  {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readEntityDescriptor(targetEntityID.rawValue) { status, descriptor in
+        if status == 0, let descriptor {
+          cont.resume(returning: EntityDescriptor(descriptor.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
   public func getAvbInfo(
-    id entityID: UniqueIdentifier,
-    avbInterfaceIndex: EntityModelDescriptorIndex
-  ) async throws -> EntityModelAvbInfo {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getAvbInfo_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        avbInterfaceIndex
-      ) { _, _, status, _, info in
-        continuation(status, info != nil ? EntityModelAvbInfo(info!.pointee) : nil)
+    id targetEntityID: UniqueIdentifier,
+    avbInterfaceIndex: UInt16
+  ) async throws -> AvbInfo {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getAvbInfo(targetEntityID.rawValue, avbInterfaceIndex) { status, _, info in
+        if status == 0, let info {
+          cont.resume(returning: AvbInfo(info.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readConfigurationDescriptor(
+    id targetEntityID: UniqueIdentifier,
+    configurationIndex: UInt16
+  ) async throws -> ConfigurationDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner
+        .readConfigurationDescriptor(
+          targetEntityID.rawValue,
+          configurationIndex
+        ) { status, _, desc in
+          if status == 0, let desc {
+            cont.resume(returning: ConfigurationDescriptor(desc.pointee))
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
+    }
+  }
+
+  public func readAvbInterfaceDescriptor(
+    id targetEntityID: UniqueIdentifier,
+    configurationIndex: UInt16,
+    avbInterfaceIndex: UInt16
+  ) async throws -> AvbInterfaceDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readAvbInterfaceDescriptor(
+        targetEntityID.rawValue, configurationIndex, avbInterfaceIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: AvbInterfaceDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readStreamInputDescriptor(
+    id targetEntityID: UniqueIdentifier,
+    configurationIndex: UInt16,
+    streamIndex: UInt16
+  ) async throws -> StreamDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readStreamInputDescriptor(
+        targetEntityID.rawValue, configurationIndex, streamIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: StreamDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readAudioUnitDescriptor(
+    id targetEntityID: UniqueIdentifier,
+    configurationIndex: UInt16, audioUnitIndex: UInt16
+  ) async throws -> AudioUnitDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readAudioUnitDescriptor(
+        targetEntityID.rawValue, configurationIndex, audioUnitIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: AudioUnitDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readJackInputDescriptor(
+    id targetEntityID: UniqueIdentifier,
+    configurationIndex: UInt16, jackIndex: UInt16
+  ) async throws -> JackDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readJackInputDescriptor(
+        targetEntityID.rawValue, configurationIndex, jackIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: JackDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readJackOutputDescriptor(
+    id targetEntityID: UniqueIdentifier,
+    configurationIndex: UInt16, jackIndex: UInt16
+  ) async throws -> JackDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readJackOutputDescriptor(
+        targetEntityID.rawValue, configurationIndex, jackIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: JackDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readClockSourceDescriptor(
+    id targetEntityID: UniqueIdentifier,
+    configurationIndex: UInt16, clockSourceIndex: UInt16
+  ) async throws -> ClockSourceDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readClockSourceDescriptor(
+        targetEntityID.rawValue, configurationIndex, clockSourceIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: ClockSourceDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readMemoryObjectDescriptor(
+    id targetEntityID: UniqueIdentifier,
+    configurationIndex: UInt16, memoryObjectIndex: UInt16
+  ) async throws -> MemoryObjectDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readMemoryObjectDescriptor(
+        targetEntityID.rawValue, configurationIndex, memoryObjectIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: MemoryObjectDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readLocaleDescriptor(
+    id targetEntityID: UniqueIdentifier,
+    configurationIndex: UInt16, localeIndex: UInt16
+  ) async throws -> LocaleDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readLocaleDescriptor(
+        targetEntityID.rawValue, configurationIndex, localeIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: LocaleDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readStringsDescriptor(
+    id targetEntityID: UniqueIdentifier,
+    configurationIndex: UInt16, stringsIndex: UInt16
+  ) async throws -> StringsDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readStringsDescriptor(
+        targetEntityID.rawValue, configurationIndex, stringsIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: StringsDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readAudioClusterDescriptor(
+    id targetEntityID: UniqueIdentifier,
+    configurationIndex: UInt16, clusterIndex: UInt16
+  ) async throws -> AudioClusterDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readAudioClusterDescriptor(
+        targetEntityID.rawValue, configurationIndex, clusterIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: AudioClusterDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readClockDomainDescriptor(
+    id targetEntityID: UniqueIdentifier,
+    configurationIndex: UInt16, clockDomainIndex: UInt16
+  ) async throws -> ClockDomainDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readClockDomainDescriptor(
+        targetEntityID.rawValue, configurationIndex, clockDomainIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: ClockDomainDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readStreamOutputDescriptor(
+    id targetEntityID: UniqueIdentifier,
+    configurationIndex: UInt16,
+    streamIndex: UInt16
+  ) async throws -> StreamDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readStreamOutputDescriptor(
+        targetEntityID.rawValue, configurationIndex, streamIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: StreamDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
   public func getAsPath(
-    id entityID: UniqueIdentifier,
-    avbInterfaceIndex: EntityModelDescriptorIndex
-  ) async throws -> [UniqueIdentifier] {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getAsPath_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        avbInterfaceIndex
-      ) { _, _, status, _, info in
-        let path: [UniqueIdentifier]? = if let sequence = info?.pointee.sequence {
-          nullTerminatedArrayToSwiftArray(sequence).map { UniqueIdentifier($0) }
+    id targetEntityID: UniqueIdentifier,
+    avbInterfaceIndex: UInt16
+  ) async throws -> AsPath {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getAsPath(targetEntityID.rawValue, avbInterfaceIndex) { status, _, asPath in
+        if status == 0, let asPath {
+          cont.resume(returning: AsPath(asPath.pointee))
         } else {
-          nil
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
         }
-        continuation(status, path)
       }
     }
   }
 
-  private static func makeCounters(
-    _ validCounters: UInt32,
-    _ counters: UnsafePointer<avdecc_entity_model_descriptor_counter_t>?
-  ) -> [UInt32?]? {
-    guard let counters else { return nil }
+  // MARK: - Additional descriptor reads
 
-    let bufferPointer = UnsafeBufferPointer(start: counters, count: 32)
+  public func readStreamPortInputDescriptor(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, streamPortIndex: UInt16
+  ) async throws -> StreamPortDescriptor { try await _readPortDescriptor(
+    targetEntityID, configurationIndex, streamPortIndex
+  ) {
+    self.owner.readStreamPortInputDescriptor($0, $1, $2, $3)
+  }}
 
-    var array = [UInt32?]()
+  public func readStreamPortOutputDescriptor(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, streamPortIndex: UInt16
+  ) async throws -> StreamPortDescriptor { try await _readPortDescriptor(
+    targetEntityID, configurationIndex, streamPortIndex
+  ) {
+    self.owner.readStreamPortOutputDescriptor($0, $1, $2, $3)
+  }}
 
-    for i in 0..<bufferPointer.count {
-      let valid = validCounters & (1 << i) != 0
-      array.append(valid ? bufferPointer[i] : nil)
+  public func readExternalPortInputDescriptor(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, externalPortIndex: UInt16
+  ) async throws -> ExternalPortDescriptor { try await _readExternalPortDescriptor(
+    targetEntityID, configurationIndex, externalPortIndex
+  ) {
+    self.owner.readExternalPortInputDescriptor($0, $1, $2, $3)
+  }}
+
+  public func readExternalPortOutputDescriptor(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, externalPortIndex: UInt16
+  ) async throws -> ExternalPortDescriptor { try await _readExternalPortDescriptor(
+    targetEntityID, configurationIndex, externalPortIndex
+  ) {
+    self.owner.readExternalPortOutputDescriptor($0, $1, $2, $3)
+  }}
+
+  public func readInternalPortInputDescriptor(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, internalPortIndex: UInt16
+  ) async throws -> InternalPortDescriptor { try await _readInternalPortDescriptor(
+    targetEntityID, configurationIndex, internalPortIndex
+  ) {
+    self.owner.readInternalPortInputDescriptor($0, $1, $2, $3)
+  }}
+
+  public func readInternalPortOutputDescriptor(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, internalPortIndex: UInt16
+  ) async throws -> InternalPortDescriptor { try await _readInternalPortDescriptor(
+    targetEntityID, configurationIndex, internalPortIndex
+  ) {
+    self.owner.readInternalPortOutputDescriptor($0, $1, $2, $3)
+  }}
+
+  public func readAudioMapDescriptor(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, mapIndex: UInt16
+  ) async throws -> AudioMapDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readAudioMapDescriptor(
+        targetEntityID.rawValue, configurationIndex, mapIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: AudioMapDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
     }
-
-    return array
   }
 
+  public func readControlDescriptor(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, controlIndex: UInt16
+  ) async throws -> ControlDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readControlDescriptor(
+        targetEntityID.rawValue, configurationIndex, controlIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: ControlDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readTimingDescriptor(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, timingIndex: UInt16
+  ) async throws -> TimingDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readTimingDescriptor(
+        targetEntityID.rawValue, configurationIndex, timingIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: TimingDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readPtpInstanceDescriptor(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, ptpInstanceIndex: UInt16
+  ) async throws -> PtpInstanceDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readPtpInstanceDescriptor(
+        targetEntityID.rawValue, configurationIndex, ptpInstanceIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: PtpInstanceDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func readPtpPortDescriptor(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, ptpPortIndex: UInt16
+  ) async throws -> PtpPortDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      owner.readPtpPortDescriptor(
+        targetEntityID.rawValue, configurationIndex, ptpPortIndex
+      ) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: PtpPortDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  // MARK: - Audio mappings (per-stream-port)
+
+  /// GET_AUDIO_MAP. Returns the (numberOfMaps, mapIndex, mappings)
+  /// triple for one map page on the listener. To enumerate every map on a
+  /// stream port, call iteratively from `mapIndex=0` up to `numberOfMaps`.
+  public func getStreamPortInputAudioMap(
+    id targetEntityID: UniqueIdentifier, streamPortIndex: UInt16, mapIndex: UInt16
+  ) async throws -> (numberOfMaps: UInt16, mapIndex: UInt16, mappings: [AudioMapping]) {
+    try await _getAudioMap(targetEntityID, streamPortIndex, mapIndex) {
+      self.owner.getStreamPortInputAudioMap($0, $1, $2, $3)
+    }
+  }
+
+  public func getStreamPortOutputAudioMap(
+    id targetEntityID: UniqueIdentifier, streamPortIndex: UInt16, mapIndex: UInt16
+  ) async throws -> (numberOfMaps: UInt16, mapIndex: UInt16, mappings: [AudioMapping]) {
+    try await _getAudioMap(targetEntityID, streamPortIndex, mapIndex) {
+      self.owner.getStreamPortOutputAudioMap($0, $1, $2, $3)
+    }
+  }
+
+  /// ADD_AUDIO_MAPPINGS. The talker/listener replaces or extends the
+  /// existing audio map; the response echoes back the post-add mappings.
+  public func addStreamPortInputAudioMappings(
+    id targetEntityID: UniqueIdentifier, streamPortIndex: UInt16, mappings: [AudioMapping]
+  ) async throws -> [AudioMapping] {
+    try await _mutateAudioMappings(targetEntityID, streamPortIndex, mappings) {
+      self.owner.addStreamPortInputAudioMappings($0, $1, $2, $3, $4)
+    }
+  }
+
+  public func addStreamPortOutputAudioMappings(
+    id targetEntityID: UniqueIdentifier, streamPortIndex: UInt16, mappings: [AudioMapping]
+  ) async throws -> [AudioMapping] {
+    try await _mutateAudioMappings(targetEntityID, streamPortIndex, mappings) {
+      self.owner.addStreamPortOutputAudioMappings($0, $1, $2, $3, $4)
+    }
+  }
+
+  public func removeStreamPortInputAudioMappings(
+    id targetEntityID: UniqueIdentifier, streamPortIndex: UInt16, mappings: [AudioMapping]
+  ) async throws -> [AudioMapping] {
+    try await _mutateAudioMappings(targetEntityID, streamPortIndex, mappings) {
+      self.owner.removeStreamPortInputAudioMappings($0, $1, $2, $3, $4)
+    }
+  }
+
+  public func removeStreamPortOutputAudioMappings(
+    id targetEntityID: UniqueIdentifier, streamPortIndex: UInt16, mappings: [AudioMapping]
+  ) async throws -> [AudioMapping] {
+    try await _mutateAudioMappings(targetEntityID, streamPortIndex, mappings) {
+      self.owner.removeStreamPortOutputAudioMappings($0, $1, $2, $3, $4)
+    }
+  }
+
+  // MARK: - Sampling rate
+
+  public func setAudioUnitSamplingRate(
+    id targetEntityID: UniqueIdentifier, audioUnitIndex: UInt16, to samplingRate: SamplingRate
+  ) async throws -> SamplingRate { try await _setSamplingRate(
+    targetEntityID, audioUnitIndex, samplingRate
+  ) {
+    self.owner.setAudioUnitSamplingRate($0, $1, $2, $3)
+  }}
+
+  public func getAudioUnitSamplingRate(
+    id targetEntityID: UniqueIdentifier, audioUnitIndex: UInt16
+  ) async throws -> SamplingRate { try await _getSamplingRate(targetEntityID, audioUnitIndex) {
+    self.owner.getAudioUnitSamplingRate($0, $1, $2)
+  }}
+
+  public func setVideoClusterSamplingRate(
+    id targetEntityID: UniqueIdentifier, videoClusterIndex: UInt16, to samplingRate: SamplingRate
+  ) async throws -> SamplingRate { try await _setSamplingRate(
+    targetEntityID, videoClusterIndex, samplingRate
+  ) {
+    self.owner.setVideoClusterSamplingRate($0, $1, $2, $3)
+  }}
+
+  public func getVideoClusterSamplingRate(
+    id targetEntityID: UniqueIdentifier, videoClusterIndex: UInt16
+  ) async throws -> SamplingRate { try await _getSamplingRate(targetEntityID, videoClusterIndex) {
+    self.owner.getVideoClusterSamplingRate($0, $1, $2)
+  }}
+
+  public func setSensorClusterSamplingRate(
+    id targetEntityID: UniqueIdentifier, sensorClusterIndex: UInt16, to samplingRate: SamplingRate
+  ) async throws -> SamplingRate { try await _setSamplingRate(
+    targetEntityID, sensorClusterIndex, samplingRate
+  ) {
+    self.owner.setSensorClusterSamplingRate($0, $1, $2, $3)
+  }}
+
+  public func getSensorClusterSamplingRate(
+    id targetEntityID: UniqueIdentifier, sensorClusterIndex: UInt16
+  ) async throws -> SamplingRate { try await _getSamplingRate(targetEntityID, sensorClusterIndex) {
+    self.owner.getSensorClusterSamplingRate($0, $1, $2)
+  }}
+
+  // MARK: - Max transit time
+
+  /// SET_MAX_TRANSIT_TIME — Milan-2019 §5.4.7. `maxTransitTime` is in
+  /// nanoseconds; returns the value the talker accepted.
+  public func setMaxTransitTime(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16, nanoseconds: UInt64
+  ) async throws -> UInt64 {
+    try await withCheckedThrowingContinuation { cont in
+      owner.setMaxTransitTime(targetEntityID.rawValue, streamIndex, nanoseconds) { status, _, ns in
+        if status == 0 {
+          cont.resume(returning: ns)
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func getMaxTransitTime(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16
+  ) async throws -> UInt64 {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getMaxTransitTime(targetEntityID.rawValue, streamIndex) { status, _, ns in
+        if status == 0 {
+          cont.resume(returning: ns)
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  // MARK: - Memory object length
+
+  public func setMemoryObjectLength(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16,
+    memoryObjectIndex: UInt16, length: UInt64
+  ) async throws -> UInt64 {
+    try await withCheckedThrowingContinuation { cont in
+      owner.setMemoryObjectLength(
+        targetEntityID.rawValue, configurationIndex, memoryObjectIndex, length
+      ) { status, len in
+        if status == 0 {
+          cont.resume(returning: len)
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func getMemoryObjectLength(
+    id targetEntityID: UniqueIdentifier, configurationIndex: UInt16, memoryObjectIndex: UInt16
+  ) async throws -> UInt64 {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getMemoryObjectLength(
+        targetEntityID.rawValue, configurationIndex, memoryObjectIndex
+      ) { status, len in
+        if status == 0 {
+          cont.resume(returning: len)
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  // MARK: - Liveness pings
+
+  public func queryEntityAvailable(id targetEntityID: UniqueIdentifier) async throws {
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      owner.queryEntityAvailable(targetEntityID.rawValue) { status in
+        if status == 0 {
+          cont.resume()
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func queryControllerAvailable(id targetEntityID: UniqueIdentifier) async throws {
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      owner.queryControllerAvailable(targetEntityID.rawValue) { status in
+        if status == 0 {
+          cont.resume()
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  // MARK: - Association
+
+  public func setAssociation(
+    id targetEntityID: UniqueIdentifier, associationID: UniqueIdentifier
+  ) async throws -> UniqueIdentifier {
+    try await withCheckedThrowingContinuation { cont in
+      owner.setAssociation(targetEntityID.rawValue, associationID.rawValue) { status, assoc in
+        if status == 0 {
+          cont.resume(returning: UniqueIdentifier(assoc))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  public func getAssociation(
+    id targetEntityID: UniqueIdentifier
+  ) async throws -> UniqueIdentifier {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getAssociation(targetEntityID.rawValue) { status, assoc in
+        if status == 0 {
+          cont.resume(returning: UniqueIdentifier(assoc))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  // MARK: - Milan info
+
+  public func getMilanInfo(id targetEntityID: UniqueIdentifier) async throws -> MilanInfo {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getMilanInfo(targetEntityID.rawValue) { status, proto, features, cert, spec in
+        if status == 0 {
+          cont.resume(returning: MilanInfo(
+            protocolVersion: proto,
+            featuresFlags: MilanInfoFeaturesFlags(rawValue: features),
+            certificationVersion: MilanVersion(rawValue: cert),
+            specificationVersion: MilanVersion(rawValue: spec)
+          ))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  // MARK: - Milan stream binding (MVU)
+
+  /// BIND_STREAM (Milan 1.3 §5.4.4.6). Bind a listener stream to a talker
+  /// (`StreamIdentification`); pass `[.streamingWait]` to make the talker
+  /// hold off streaming until explicitly enabled. Returns the post-bind
+  /// state echoed back by the listener.
+  public func bindStream(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16,
+    talker: StreamIdentification, flags: BindStreamFlags = []
+  ) async throws -> (talker: StreamIdentification, flags: BindStreamFlags) {
+    try await withCheckedThrowingContinuation { cont in
+      owner.bindStream(
+        targetEntityID.rawValue, streamIndex,
+        talker.entityID.rawValue, talker.streamIndex, flags.rawValue
+      ) { status, _, talkerID, talkerIdx, outFlags in
+        if status == 0 {
+          cont.resume(returning: (
+            StreamIdentification(
+              entityID: UniqueIdentifier(talkerID), streamIndex: talkerIdx
+            ),
+            BindStreamFlags(rawValue: outFlags)
+          ))
+        } else {
+          cont.resume(throwing: LocalEntityMvuCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  /// UNBIND_STREAM (Milan 1.3 §5.4.4.7). Clear a listener-side stream
+  /// binding. Idempotent against an already-unbound stream.
+  public func unbindStream(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16
+  ) async throws {
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      owner.unbindStream(targetEntityID.rawValue, streamIndex) { status, _ in
+        if status == 0 {
+          cont.resume()
+        } else {
+          cont.resume(throwing: LocalEntityMvuCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  /// GET_STREAM_INPUT_INFO_EX (Milan 1.3 §5.4.4.8). Like the AEM
+  /// `getStreamInputInfo` but returns the resolved talker plus probing /
+  /// ACMP state.
+  public func getStreamInputInfoEx(
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16
+  ) async throws -> StreamInputInfoEx {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getStreamInputInfoEx(targetEntityID.rawValue, streamIndex) { status, _, info in
+        if status == 0, let info {
+          let raw = info.pointee
+          cont.resume(returning: StreamInputInfoEx(
+            talkerStream: StreamIdentification(
+              entityID: UniqueIdentifier(raw.talkerStream.entityID),
+              streamIndex: raw.talkerStream.streamIndex
+            ),
+            probingStatus: ProbingStatus(UInt8(raw.probingStatus.rawValue)),
+            acmpStatus: AcmpStatus(rawValue: raw.acmpStatus.getValue())
+          ))
+        } else {
+          cont.resume(throwing: LocalEntityMvuCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  // MARK: - Milan system unique ID (MVU)
+
+  /// GET_SYSTEM_UNIQUE_ID (Milan 1.3 §5.4.4.10). Returns the system-wide
+  /// identifier and human-readable name an entity advertises for the system
+  /// it belongs to.
+  public func getSystemUniqueID(
+    id targetEntityID: UniqueIdentifier
+  ) async throws -> (systemUniqueID: UniqueIdentifier, systemName: String) {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getSystemUniqueID(targetEntityID.rawValue) { status, sys, name in
+        if status == 0, let name {
+          cont.resume(returning: (
+            UniqueIdentifier(sys), String(name.pointee.str())
+          ))
+        } else {
+          cont.resume(throwing: LocalEntityMvuCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  /// SET_SYSTEM_UNIQUE_ID (Milan 1.3 §5.4.4.10). Writes both fields in one
+  /// command; the entity may truncate `systemName` to 64 bytes.
+  public func setSystemUniqueID(
+    id targetEntityID: UniqueIdentifier,
+    systemUniqueID: UniqueIdentifier, systemName: String
+  ) async throws -> (systemUniqueID: UniqueIdentifier, systemName: String) {
+    try await withCheckedThrowingContinuation { cont in
+      var name = systemName
+      name.withUTF8 { utf8 in
+        owner.setSystemUniqueID(
+          targetEntityID.rawValue, systemUniqueID.rawValue,
+          UnsafeRawPointer(utf8.baseAddress), utf8.count
+        ) { status, sys, n in
+          if status == 0, let n {
+            cont.resume(returning: (
+              UniqueIdentifier(sys), String(n.pointee.str())
+            ))
+          } else {
+            cont.resume(throwing: LocalEntityMvuCommandStatus(status))
+          }
+        }
+      }
+    }
+  }
+
+  // MARK: - Milan media clock reference (MVU)
+
+  /// GET_MEDIA_CLOCK_REFERENCE_INFO (Milan 1.3 §5.4.4.5). Returns the
+  /// default priority, plus whichever of the optional fields the entity
+  /// reported.
+  public func getMediaClockReferenceInfo(
+    id targetEntityID: UniqueIdentifier, clockDomainIndex: UInt16
+  ) async throws -> (
+    defaultPriority: DefaultMediaClockReferencePriority,
+    info: MediaClockReferenceInfo
+  ) {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getMediaClockReferenceInfo(
+        targetEntityID.rawValue, clockDomainIndex
+      ) { status, _, def, hasPrio, prio, hasName, name in
+        if status == 0 {
+          let resolvedName: String? = (hasName && name != nil)
+            ? String(name!.pointee.str()) : nil
+          cont.resume(returning: (
+            DefaultMediaClockReferencePriority(def),
+            MediaClockReferenceInfo(
+              userMediaClockPriority: hasPrio ? prio : nil,
+              mediaClockDomainName: resolvedName
+            )
+          ))
+        } else {
+          cont.resume(throwing: LocalEntityMvuCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  /// SET_MEDIA_CLOCK_REFERENCE_INFO (Milan 1.3 §5.4.4.5). Either field may
+  /// be `nil` to leave it unchanged. The entity echoes the post-update
+  /// state back through the response.
+  public func setMediaClockReferenceInfo(
+    id targetEntityID: UniqueIdentifier, clockDomainIndex: UInt16,
+    userMediaClockPriority: MediaClockReferencePriority? = nil,
+    mediaClockDomainName: String? = nil
+  ) async throws -> (
+    defaultPriority: DefaultMediaClockReferencePriority,
+    info: MediaClockReferenceInfo
+  ) {
+    try await withCheckedThrowingContinuation { cont in
+      let prio = userMediaClockPriority ?? 0
+      let hasPrio = userMediaClockPriority != nil
+      let runWith: (UnsafeRawPointer?, Int) -> () = { ptr, len in
+        self.owner.setMediaClockReferenceInfo(
+          targetEntityID.rawValue, clockDomainIndex,
+          hasPrio, prio,
+          mediaClockDomainName != nil, ptr, len
+        ) { status, _, def, hasP, p, hasN, n in
+          if status == 0 {
+            let resolvedName: String? = (hasN && n != nil)
+              ? String(n!.pointee.str()) : nil
+            cont.resume(returning: (
+              DefaultMediaClockReferencePriority(def),
+              MediaClockReferenceInfo(
+                userMediaClockPriority: hasP ? p : nil,
+                mediaClockDomainName: resolvedName
+              )
+            ))
+          } else {
+            cont.resume(throwing: LocalEntityMvuCommandStatus(status))
+          }
+        }
+      }
+      if var nameStr = mediaClockDomainName {
+        nameStr.withUTF8 { utf8 in
+          runWith(UnsafeRawPointer(utf8.baseAddress), utf8.count)
+        }
+      } else {
+        runWith(nil, 0)
+      }
+    }
+  }
+
+  // MARK: - Operations (AEM)
+
+  /// START_OPERATION (IEEE 1722.1-2013 §7.4.53). Kick off an operation
+  /// against a descriptor (typically a `MEMORY_OBJECT`). The returned
+  /// `operationID` lets you correlate later progress notifications and
+  /// pass to `abortOperation`.
+  public func startOperation(
+    id targetEntityID: UniqueIdentifier,
+    descriptorType: UInt16, descriptorIndex: UInt16,
+    operationType: MemoryObjectOperationType, payload: [UInt8] = []
+  ) async throws -> OperationResult {
+    try await withCheckedThrowingContinuation { cont in
+      payload.withUnsafeBufferPointer { buf in
+        owner.startOperation(
+          targetEntityID.rawValue, descriptorType, descriptorIndex,
+          operationType.rawValue,
+          UnsafeRawPointer(buf.baseAddress), buf.count
+        ) { status, dt, di, op, ot, ptr, len in
+          if status == 0 {
+            let bytes: [UInt8] = if let ptr, len > 0 {
+              Array(UnsafeBufferPointer(start: ptr, count: len))
+            } else {
+              []
+            }
+            cont.resume(returning: OperationResult(
+              descriptorType: dt, descriptorIndex: di,
+              operationID: op,
+              operationType: MemoryObjectOperationType(rawValue: ot) ?? .read,
+              payload: bytes
+            ))
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
+      }
+    }
+  }
+
+  /// ABORT_OPERATION (IEEE 1722.1-2013 §7.4.54). Cancel an operation
+  /// previously started via `startOperation`.
+  public func abortOperation(
+    id targetEntityID: UniqueIdentifier,
+    descriptorType: UInt16, descriptorIndex: UInt16, operationID: UInt16
+  ) async throws {
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      owner.abortOperation(
+        targetEntityID.rawValue, descriptorType, descriptorIndex, operationID
+      ) { status, _, _, _ in
+        if status == 0 {
+          cont.resume()
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  // MARK: - Counters
+
   public func getEntityCounters(
-    id entityID: UniqueIdentifier
-  ) async throws -> [UInt32?] {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getEntityCounters_block(
-        handle,
-        entityID.bridgeToAvdeccCType()
-      ) { _, _, status, validCounters, counters in
-        continuation(status, Self.makeCounters(validCounters, counters))
+    id targetEntityID: UniqueIdentifier
+  ) async throws -> (valid: EntityCounterValidFlags, counters: DescriptorCounters) {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getEntityCounters(targetEntityID.rawValue) { status, valid, ptr in
+        if status == 0, let ptr {
+          cont.resume(returning: (
+            EntityCounterValidFlags(rawValue: valid),
+            DescriptorCounters(_copyCounters(ptr))
+          ))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
   public func getAvbInterfaceCounters(
-    id entityID: UniqueIdentifier,
-    avbInterfaceIndex: EntityModelDescriptorIndex
-  ) async throws -> [UInt32?] {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getAvbInterfaceCounters_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        avbInterfaceIndex
-      ) { _, _, status, _, validCounters, counters in
-        continuation(status, Self.makeCounters(validCounters, counters))
+    id targetEntityID: UniqueIdentifier, avbInterfaceIndex: UInt16
+  ) async throws -> (valid: AvbInterfaceCounterValidFlags, counters: DescriptorCounters) {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getAvbInterfaceCounters(
+        targetEntityID.rawValue, avbInterfaceIndex
+      ) { status, _, valid, ptr in
+        if status == 0, let ptr {
+          cont.resume(returning: (
+            AvbInterfaceCounterValidFlags(rawValue: valid),
+            DescriptorCounters(_copyCounters(ptr))
+          ))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
   public func getClockDomainCounters(
-    id entityID: UniqueIdentifier,
-    clockDomainIndex: EntityModelDescriptorIndex
-  ) async throws -> [UInt32?] {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getClockDomainCounters_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        clockDomainIndex
-      ) { _, _, status, _, validCounters, counters in
-        continuation(status, Self.makeCounters(validCounters, counters))
+    id targetEntityID: UniqueIdentifier, clockDomainIndex: UInt16
+  ) async throws -> (valid: ClockDomainCounterValidFlags, counters: DescriptorCounters) {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getClockDomainCounters(
+        targetEntityID.rawValue, clockDomainIndex
+      ) { status, _, valid, ptr in
+        if status == 0, let ptr {
+          cont.resume(returning: (
+            ClockDomainCounterValidFlags(rawValue: valid),
+            DescriptorCounters(_copyCounters(ptr))
+          ))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
   public func getStreamInputCounters(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex
-  ) async throws -> [UInt32?] {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getStreamInputCounters_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex
-      ) { _, _, status, _, validCounters, counters in
-        continuation(status, Self.makeCounters(validCounters, counters))
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16
+  ) async throws -> (valid: StreamInputCounterValidFlags, counters: DescriptorCounters) {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getStreamInputCounters(
+        targetEntityID.rawValue, streamIndex
+      ) { status, _, valid, ptr in
+        if status == 0, let ptr {
+          cont.resume(returning: (
+            StreamInputCounterValidFlags(rawValue: valid),
+            DescriptorCounters(_copyCounters(ptr))
+          ))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
 
   public func getStreamOutputCounters(
-    id entityID: UniqueIdentifier,
-    streamIndex: EntityModelDescriptorIndex
-  ) async throws -> [UInt32?] {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getStreamOutputCounters_block(
-        handle,
-        entityID.bridgeToAvdeccCType(),
-        streamIndex
-      ) { _, _, status, _, validCounters, counters in
-        continuation(status, Self.makeCounters(validCounters, counters))
-      }
-    }
-  }
-
-  public func getMilanInfo(
-    id entityID: UniqueIdentifier
-  ) async throws -> EntityModelMilanInfo {
-    try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getMilanInfo_block(
-        handle,
-        entityID.bridgeToAvdeccCType()
-      ) { _, _, status, info in
-        continuation(status, info != nil ? EntityModelMilanInfo(info!.pointee) : nil)
-      }
-    }
-  }
-
-  public func connect(
-    talkerStream: EntityModelStreamIdentification,
-    to listenerStream: EntityModelStreamIdentification
-  ) async throws -> (UInt16, EntityConnectionFlags) {
-    var talkerStream = talkerStream.bridgeToAvdeccCType()
-    var listenerStream = listenerStream.bridgeToAvdeccCType()
-    return try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_connectStream_block(
-        handle,
-        &talkerStream,
-        &listenerStream
-      ) { _, _, _, connectionCount, flags, status in
-        continuation(status, (connectionCount, EntityConnectionFlags(rawValue: flags)))
-      }
-    }
-  }
-
-  public func disconnect(
-    talkerStream: EntityModelStreamIdentification,
-    from listenerStream: EntityModelStreamIdentification,
-    force: Bool = false
-  ) async throws -> (UInt16, EntityConnectionFlags) {
-    var talkerStream = talkerStream.bridgeToAvdeccCType()
-    var listenerStream = listenerStream.bridgeToAvdeccCType()
-    return try await invokeHandler { handle, continuation in
-      if force {
-        LA_AVDECC_LocalEntity_disconnectTalkerStream_block(
-          handle,
-          &talkerStream,
-          &listenerStream
-        ) { _, _, _, connectionCount, flags, status in
-          continuation(status, (connectionCount, EntityConnectionFlags(rawValue: flags)))
-        }
-      } else {
-        LA_AVDECC_LocalEntity_disconnectStream_block(
-          handle,
-          &talkerStream,
-          &listenerStream
-        ) { _, _, _, connectionCount, flags, status in
-          continuation(status, (connectionCount, EntityConnectionFlags(rawValue: flags)))
+    id targetEntityID: UniqueIdentifier, streamIndex: UInt16
+  ) async throws -> (valid: StreamOutputCounterValidFlags, counters: DescriptorCounters) {
+    try await withCheckedThrowingContinuation { cont in
+      owner.getStreamOutputCounters(
+        targetEntityID.rawValue, streamIndex
+      ) { status, _, valid, ptr in
+        if status == 0, let ptr {
+          cont.resume(returning: (
+            StreamOutputCounterValidFlags(rawValue: valid),
+            DescriptorCounters(_copyCounters(ptr))
+          ))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
         }
       }
     }
   }
 
-  public struct StreamState: Sendable {
-    public let talkerStream: EntityModelStreamIdentification?
-    public let listenerStream: EntityModelStreamIdentification?
-    public let connectionCount: UInt16
-    public let flags: UInt16
+  // MARK: - Reboot
+
+  /// REBOOT — IEEE 1722.1-2013 §7.4.55. The target reboots after acking;
+  /// the response status confirms acceptance, not completion.
+  public func reboot(id targetEntityID: UniqueIdentifier) async throws {
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      owner.reboot(targetEntityID.rawValue) { status in
+        if status == 0 {
+          cont.resume()
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
   }
 
-  public func getTalkerStreamState(_ talkerStream: EntityModelStreamIdentification) async throws
-    -> StreamState
-  {
-    var talkerStream = talkerStream.bridgeToAvdeccCType()
-    return try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getTalkerStreamState_block(
-        handle,
-        &talkerStream
-      ) { _, talkerStream, listenerStream, connectionCount, flags, status in
-        let streamState = StreamState(
-          talkerStream: talkerStream != nil ?
-            EntityModelStreamIdentification(talkerStream!) : nil,
-          listenerStream: listenerStream != nil ?
-            EntityModelStreamIdentification(listenerStream!) : nil,
-          connectionCount: connectionCount,
-          flags: flags
-        )
-        continuation(status, streamState)
+  /// REBOOT_TO_FIRMWARE — Milan-2019. Target reboots into the firmware
+  /// stored in the named MEMORY_OBJECT.
+  public func rebootToFirmware(
+    id targetEntityID: UniqueIdentifier, memoryObjectIndex: UInt16
+  ) async throws {
+    try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(), Error>) in
+      owner.rebootToFirmware(targetEntityID.rawValue, memoryObjectIndex) { status in
+        if status == 0 {
+          cont.resume()
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
+    }
+  }
+
+  // MARK: - ACMP connection management
+
+  /// CONNECT_TX. Returns the post-connect state (talker/listener pair,
+  /// connection count, flags). Throws `LocalEntityControlStatus` on
+  /// non-success.
+  public func connectStream(
+    talker: StreamIdentification, listener: StreamIdentification
+  ) async throws -> StreamConnectionState {
+    try await _connectionCall { cb in
+      self.owner.connectStream(
+        talker.entityID.rawValue, talker.streamIndex,
+        listener.entityID.rawValue, listener.streamIndex, cb
+      )
+    }
+  }
+
+  public func disconnectStream(
+    talker: StreamIdentification, listener: StreamIdentification
+  ) async throws -> StreamConnectionState {
+    try await _connectionCall { cb in
+      self.owner.disconnectStream(
+        talker.entityID.rawValue, talker.streamIndex,
+        listener.entityID.rawValue, listener.streamIndex, cb
+      )
+    }
+  }
+
+  public func disconnectTalkerStream(
+    talker: StreamIdentification, listener: StreamIdentification
+  ) async throws -> StreamConnectionState {
+    try await _connectionCall { cb in
+      self.owner.disconnectTalkerStream(
+        talker.entityID.rawValue, talker.streamIndex,
+        listener.entityID.rawValue, listener.streamIndex, cb
+      )
+    }
+  }
+
+  public func getTalkerStreamState(
+    talker: StreamIdentification
+  ) async throws -> StreamConnectionState {
+    try await _connectionCall { cb in
+      self.owner.getTalkerStreamState(
+        talker.entityID.rawValue, talker.streamIndex, cb
+      )
     }
   }
 
   public func getListenerStreamState(
-    _ talkerStream: EntityModelStreamIdentification
-  ) async throws
-    -> StreamState
-  {
-    var talkerStream = talkerStream.bridgeToAvdeccCType()
-    return try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getListenerStreamState_block(
-        handle,
-        &talkerStream
-      ) { _, talkerStream, listenerStream, connectionCount, flags, status in
-        let streamState = StreamState(
-          talkerStream: talkerStream != nil ?
-            EntityModelStreamIdentification(talkerStream!) : nil,
-          listenerStream: listenerStream != nil ?
-            EntityModelStreamIdentification(listenerStream!) : nil,
-          connectionCount: connectionCount,
-          flags: flags
-        )
-        continuation(status, streamState)
-      }
+    listener: StreamIdentification
+  ) async throws -> StreamConnectionState {
+    try await _connectionCall { cb in
+      self.owner.getListenerStreamState(
+        listener.entityID.rawValue, listener.streamIndex, cb
+      )
     }
   }
 
   public func getTalkerStreamConnection(
-    _ talkerStream: EntityModelStreamIdentification,
-    connectionIndex: UInt16
-  ) async throws -> StreamState {
-    var talkerStream = talkerStream.bridgeToAvdeccCType()
-    return try await invokeHandler { handle, continuation in
-      LA_AVDECC_LocalEntity_getTalkerStreamConnection_block(
-        handle,
-        &talkerStream,
-        connectionIndex
-      ) { _, talkerStream, listenerStream, connectionCount, flags, status in
-        let streamState = StreamState(
-          talkerStream: talkerStream != nil ?
-            EntityModelStreamIdentification(talkerStream!) : nil,
-          listenerStream: listenerStream != nil ?
-            EntityModelStreamIdentification(listenerStream!) : nil,
-          connectionCount: connectionCount,
-          flags: flags
-        )
-        continuation(status, streamState)
+    talker: StreamIdentification, connectionIndex: UInt16
+  ) async throws -> StreamConnectionState {
+    try await _connectionCall { cb in
+      self.owner.getTalkerStreamConnection(
+        talker.entityID.rawValue, talker.streamIndex, connectionIndex, cb
+      )
+    }
+  }
+
+  // MARK: - Private helpers (sampling rate, counter array copy)
+
+  private func _setSamplingRate(
+    _ id: UniqueIdentifier, _ descIdx: UInt16, _ rate: SamplingRate,
+    _ call: @escaping (
+      UInt64,
+      UInt16,
+      UInt32,
+      @escaping (UInt16, UInt16, UInt32) -> ()
+    ) -> ()
+  ) async throws -> SamplingRate {
+    try await withCheckedThrowingContinuation { cont in
+      call(id.rawValue, descIdx, rate.rawValue) { status, _, raw in
+        if status == 0 {
+          cont.resume(returning: SamplingRate(raw))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
       }
     }
   }
-}
 
-private func LocalEntity_onTransportError(handle: UnsafeMutableRawPointer?) {
-  LocalEntity.withDelegate(handle) {
-    $0.delegate?.onTransportError($0)
+  private func _getSamplingRate(
+    _ id: UniqueIdentifier, _ descIdx: UInt16,
+    _ call: @escaping (
+      UInt64,
+      UInt16,
+      @escaping (UInt16, UInt16, UInt32) -> ()
+    ) -> ()
+  ) async throws -> SamplingRate {
+    try await withCheckedThrowingContinuation { cont in
+      call(id.rawValue, descIdx) { status, _, raw in
+        if status == 0 {
+          cont.resume(returning: SamplingRate(raw))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  // Shared shape for read*PortDescriptor / read*ExternalPort* /
+  // read*InternalPort* — the callback signature differs only by descriptor
+  // type. We parameterise on the closure to avoid 6 identical templates.
+  private func _readPortDescriptor(
+    _ id: UniqueIdentifier, _ configIdx: UInt16, _ portIdx: UInt16,
+    _ call: @escaping (
+      UInt64,
+      UInt16,
+      UInt16,
+      @escaping (
+        UInt16,
+        UInt16,
+        UnsafePointer<la.avdecc.entity.model.StreamPortDescriptor>?
+      ) -> ()
+    ) -> ()
+  ) async throws -> StreamPortDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      call(id.rawValue, configIdx, portIdx) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: StreamPortDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  private func _readExternalPortDescriptor(
+    _ id: UniqueIdentifier, _ configIdx: UInt16, _ portIdx: UInt16,
+    _ call: @escaping (
+      UInt64,
+      UInt16,
+      UInt16,
+      @escaping (
+        UInt16,
+        UInt16,
+        UnsafePointer<la.avdecc.entity.model.ExternalPortDescriptor>?
+      ) -> ()
+    ) -> ()
+  ) async throws -> ExternalPortDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      call(id.rawValue, configIdx, portIdx) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: ExternalPortDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  private func _readInternalPortDescriptor(
+    _ id: UniqueIdentifier, _ configIdx: UInt16, _ portIdx: UInt16,
+    _ call: @escaping (
+      UInt64,
+      UInt16,
+      UInt16,
+      @escaping (
+        UInt16,
+        UInt16,
+        UnsafePointer<la.avdecc.entity.model.InternalPortDescriptor>?
+      ) -> ()
+    ) -> ()
+  ) async throws -> InternalPortDescriptor {
+    try await withCheckedThrowingContinuation { cont in
+      call(id.rawValue, configIdx, portIdx) { status, _, desc in
+        if status == 0, let desc {
+          cont.resume(returning: InternalPortDescriptor(desc.pointee))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  // GET_AUDIO_MAP shared shape — input/output are byte-identical.
+  // Mappings come back as a (data*, count) pair into la_avdecc's vector;
+  // we copy out before the callback returns and the C++ vector is freed.
+  private func _getAudioMap(
+    _ id: UniqueIdentifier, _ streamPortIndex: UInt16, _ mapIndex: UInt16,
+    _ call: @escaping (
+      UInt64,
+      UInt16,
+      UInt16,
+      @escaping (
+        UInt16,
+        UInt16,
+        UInt16,
+        UInt16,
+        UnsafePointer<la.avdecc.entity.model.AudioMapping>?,
+        Int
+      ) -> ()
+    ) -> ()
+  ) async throws -> (numberOfMaps: UInt16, mapIndex: UInt16, mappings: [AudioMapping]) {
+    try await withCheckedThrowingContinuation { cont in
+      call(id.rawValue, streamPortIndex, mapIndex) { status, _, numMaps, mi, ptr, count in
+        if status == 0 {
+          cont.resume(returning: (numMaps, mi, _copyMappings(ptr, count)))
+        } else {
+          cont.resume(throwing: LocalEntityAemCommandStatus(status))
+        }
+      }
+    }
+  }
+
+  // ADD/REMOVE_AUDIO_MAPPINGS shared shape. Swift hands raw `AudioMapping`
+  // bytes to la_avdecc, which copies them into a std::vector internally.
+  // The response echoes back the post-mutation mapping set, which we copy
+  // out the same way as `_getAudioMap`.
+  private func _mutateAudioMappings(
+    _ id: UniqueIdentifier, _ streamPortIndex: UInt16, _ mappings: [AudioMapping],
+    _ call: @escaping (
+      UInt64,
+      UInt16,
+      UnsafePointer<la.avdecc.entity.model.AudioMapping>?,
+      Int,
+      @escaping (
+        UInt16,
+        UInt16,
+        UnsafePointer<la.avdecc.entity.model.AudioMapping>?,
+        Int
+      ) -> ()
+    ) -> ()
+  ) async throws -> [AudioMapping] {
+    let cxxMappings = mappings.map { m in
+      var v = la.avdecc.entity.model.AudioMapping()
+      v.streamIndex = m.streamIndex
+      v.streamChannel = m.streamChannel
+      v.clusterOffset = m.clusterOffset
+      v.clusterChannel = m.clusterChannel
+      return v
+    }
+    return try await withCheckedThrowingContinuation { cont in
+      cxxMappings.withUnsafeBufferPointer { buf in
+        call(id.rawValue, streamPortIndex, buf.baseAddress, buf.count) { status, _, ptr, count in
+          if status == 0 {
+            cont.resume(returning: _copyMappings(ptr, count))
+          } else {
+            cont.resume(throwing: LocalEntityAemCommandStatus(status))
+          }
+        }
+      }
+    }
+  }
+
+  // Shared callback shape for every ACMP entry point: (status, talkerEID,
+  // talkerStreamIdx, listenerEID, listenerStreamIdx, count, flags). Six
+  // u16/u64 ints in the middle that we assemble back into a
+  // StreamConnectionState. Throws LocalEntityControlStatus (ACMP status)
+  // rather than the AEM status.
+  private func _connectionCall(
+    _ kickoff: @escaping (
+      @escaping (UInt16, UInt64, UInt16, UInt64, UInt16, UInt16, UInt16) -> ()
+    ) -> ()
+  ) async throws -> StreamConnectionState {
+    try await withCheckedThrowingContinuation { cont in
+      kickoff { status, tEID, tIdx, lEID, lIdx, count, flags in
+        if status == 0 {
+          cont.resume(returning: StreamConnectionState(
+            talkerStream: StreamIdentification(
+              entityID: UniqueIdentifier(tEID), streamIndex: tIdx
+            ),
+            listenerStream: StreamIdentification(
+              entityID: UniqueIdentifier(lEID), streamIndex: lIdx
+            ),
+            connectionCount: count,
+            flags: ConnectionFlags(rawValue: flags)
+          ))
+        } else {
+          cont.resume(throwing: LocalEntityControlStatus(status))
+        }
+      }
+    }
+  }
+
+  // MARK: - Delegate wiring
+
+  /// Called from `delegate.didSet`. Detaches first so la_avdecc cannot
+  /// deliver an event mid-rebind, clears every Block<> slot in the C++
+  /// adapter, installs new blocks for each protocol method, then
+  /// re-attaches. Captures `self` weakly to avoid the cycle owner →
+  /// Block_copy'd closure → self → owner.
+  ///
+  /// All ~80 callbacks are installed unconditionally; unused ones land
+  /// on the protocol's default no-op extension. The cost is one
+  /// Block_copy per slot per delegate change; not a hot path.
+  private func rebindDelegate() {
+    owner.detachDelegate()
+    owner.clearDelegateBlocks()
+    guard let _ = delegate else { return }
+
+    // Helper for the six sniffed-ACMP callbacks. Each takes the same flat
+    // (uint64,uint16,uint64,uint16,uint16,uint16,uint16) and reassembles
+    // into (StreamConnectionState, status). Returns a closure ready to
+    // hand to `owner.setOnX`.
+    let sniffedHandler: (
+      @escaping (
+        LocalEntityDelegate,
+        LocalEntity,
+        StreamConnectionState,
+        LocalEntityControlStatus
+      ) -> ()
+    ) -> @convention(block) (
+      UInt64,
+      UInt16,
+      UInt64,
+      UInt16,
+      UInt16,
+      UInt16,
+      UInt16
+    ) -> () = { fwd in
+      { [weak self] tEID, tIdx, lEID, lIdx, count, flags, status in
+        guard let self, let d = delegate else { return }
+        let state = StreamConnectionState(
+          talkerStream: StreamIdentification(
+            entityID: UniqueIdentifier(tEID), streamIndex: tIdx
+          ),
+          listenerStream: StreamIdentification(
+            entityID: UniqueIdentifier(lEID), streamIndex: lIdx
+          ),
+          connectionCount: count, flags: ConnectionFlags(rawValue: flags)
+        )
+        fwd(d, self, state, LocalEntityControlStatus(status))
+      }
+    }
+
+    // ---- Global / lifecycle -------------------------------------------
+    owner.setOnTransportError { [weak self] in
+      guard let self, let d = delegate else { return }
+      d.onTransportError(self)
+    }
+    owner.setOnEntityOnline { [weak self] id, ent in
+      guard let self, let d = delegate, let ent else { return }
+      d.onEntityOnline(self, id: UniqueIdentifier(id), entity: Entity(ent))
+    }
+    owner.setOnEntityUpdate { [weak self] id, ent in
+      guard let self, let d = delegate, let ent else { return }
+      d.onEntityUpdate(self, id: UniqueIdentifier(id), entity: Entity(ent))
+    }
+    owner.setOnEntityOffline { [weak self] id in
+      guard let self, let d = delegate else { return }
+      d.onEntityOffline(self, id: UniqueIdentifier(id))
+    }
+    owner.setOnEntityIdentifyNotification { [weak self] id in
+      guard let self, let d = delegate else { return }
+      d.onEntityIdentifyNotification(self, id: UniqueIdentifier(id))
+    }
+    owner.setOnDeregisteredFromUnsolicitedNotifications { [weak self] id in
+      guard let self, let d = delegate else { return }
+      d.onDeregisteredFromUnsolicitedNotifications(self, id: UniqueIdentifier(id))
+    }
+
+    // ---- Sniffed ACMP --------------------------------------------------
+    owner.setOnControllerConnectResponseSniffed(
+      sniffedHandler { d, le, state, st in
+        d.onControllerConnectResponseSniffed(le, state: state, status: st)
+      })
+    owner.setOnControllerDisconnectResponseSniffed(
+      sniffedHandler { d, le, state, st in
+        d.onControllerDisconnectResponseSniffed(le, state: state, status: st)
+      })
+    owner.setOnListenerConnectResponseSniffed(
+      sniffedHandler { d, le, state, st in
+        d.onListenerConnectResponseSniffed(le, state: state, status: st)
+      })
+    owner.setOnListenerDisconnectResponseSniffed(
+      sniffedHandler { d, le, state, st in
+        d.onListenerDisconnectResponseSniffed(le, state: state, status: st)
+      })
+    owner.setOnGetTalkerStreamStateResponseSniffed(
+      sniffedHandler { d, le, state, st in
+        d.onGetTalkerStreamStateResponseSniffed(le, state: state, status: st)
+      })
+    owner.setOnGetListenerStreamStateResponseSniffed(
+      sniffedHandler { d, le, state, st in
+        d.onGetListenerStreamStateResponseSniffed(le, state: state, status: st)
+      })
+
+    // ---- Acquire / release / lock / unlock -----------------------------
+    owner.setOnEntityAcquired { [weak self] id, owning, dt, di in
+      guard let self, let d = delegate else { return }
+      d.onEntityAcquired(
+        self,
+        id: UniqueIdentifier(id),
+        owningEntity: UniqueIdentifier(owning),
+        descriptorType: dt,
+        descriptorIndex: di
+      )
+    }
+    owner.setOnEntityReleased { [weak self] id, owning, dt, di in
+      guard let self, let d = delegate else { return }
+      d.onEntityReleased(
+        self,
+        id: UniqueIdentifier(id),
+        owningEntity: UniqueIdentifier(owning),
+        descriptorType: dt,
+        descriptorIndex: di
+      )
+    }
+    owner.setOnEntityLocked { [weak self] id, locking, dt, di in
+      guard let self, let d = delegate else { return }
+      d.onEntityLocked(
+        self,
+        id: UniqueIdentifier(id),
+        lockingEntity: UniqueIdentifier(locking),
+        descriptorType: dt,
+        descriptorIndex: di
+      )
+    }
+    owner.setOnEntityUnlocked { [weak self] id, locking, dt, di in
+      guard let self, let d = delegate else { return }
+      d.onEntityUnlocked(
+        self,
+        id: UniqueIdentifier(id),
+        lockingEntity: UniqueIdentifier(locking),
+        descriptorType: dt,
+        descriptorIndex: di
+      )
+    }
+
+    // ---- Configuration / clock-source / association -------------------
+    owner.setOnConfigurationChanged { [weak self] id, cfg in
+      guard let self, let d = delegate else { return }
+      d.onConfigurationChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg
+      )
+    }
+    owner.setOnAssociationIDChanged { [weak self] id, assoc in
+      guard let self, let d = delegate else { return }
+      d.onAssociationIDChanged(
+        self,
+        id: UniqueIdentifier(id),
+        associationID: UniqueIdentifier(assoc)
+      )
+    }
+    owner.setOnClockSourceChanged { [weak self] id, cd, cs in
+      guard let self, let d = delegate else { return }
+      d.onClockSourceChanged(
+        self,
+        id: UniqueIdentifier(id),
+        clockDomainIndex: cd,
+        clockSourceIndex: cs
+      )
+    }
+
+    // ---- Stream format / mappings / info / start-stop -----------------
+    owner.setOnStreamInputFormatChanged { [weak self] id, si, fmt in
+      guard let self, let d = delegate else { return }
+      d.onStreamInputFormatChanged(
+        self,
+        id: UniqueIdentifier(id),
+        streamIndex: si,
+        streamFormat: StreamFormat(format: fmt)
+      )
+    }
+    owner.setOnStreamOutputFormatChanged { [weak self] id, si, fmt in
+      guard let self, let d = delegate else { return }
+      d.onStreamOutputFormatChanged(
+        self,
+        id: UniqueIdentifier(id),
+        streamIndex: si,
+        streamFormat: StreamFormat(format: fmt)
+      )
+    }
+    owner.setOnStreamPortInputAudioMappingsChanged { [weak self] id, sp, num, mi, ptr, count in
+      guard let self, let d = delegate else { return }
+      d.onStreamPortInputAudioMappingsChanged(
+        self, id: UniqueIdentifier(id), streamPortIndex: sp,
+        numberOfMaps: num, mapIndex: mi,
+        mappings: _copyMappings(ptr, count)
+      )
+    }
+    owner.setOnStreamPortOutputAudioMappingsChanged { [weak self] id, sp, num, mi, ptr, count in
+      guard let self, let d = delegate else { return }
+      d.onStreamPortOutputAudioMappingsChanged(
+        self, id: UniqueIdentifier(id), streamPortIndex: sp,
+        numberOfMaps: num, mapIndex: mi,
+        mappings: _copyMappings(ptr, count)
+      )
+    }
+    owner.setOnStreamPortInputAudioMappingsAdded { [weak self] id, sp, ptr, count in
+      guard let self, let d = delegate else { return }
+      d.onStreamPortInputAudioMappingsAdded(
+        self, id: UniqueIdentifier(id), streamPortIndex: sp,
+        mappings: _copyMappings(ptr, count)
+      )
+    }
+    owner.setOnStreamPortOutputAudioMappingsAdded { [weak self] id, sp, ptr, count in
+      guard let self, let d = delegate else { return }
+      d.onStreamPortOutputAudioMappingsAdded(
+        self, id: UniqueIdentifier(id), streamPortIndex: sp,
+        mappings: _copyMappings(ptr, count)
+      )
+    }
+    owner.setOnStreamPortInputAudioMappingsRemoved { [weak self] id, sp, ptr, count in
+      guard let self, let d = delegate else { return }
+      d.onStreamPortInputAudioMappingsRemoved(
+        self, id: UniqueIdentifier(id), streamPortIndex: sp,
+        mappings: _copyMappings(ptr, count)
+      )
+    }
+    owner.setOnStreamPortOutputAudioMappingsRemoved { [weak self] id, sp, ptr, count in
+      guard let self, let d = delegate else { return }
+      d.onStreamPortOutputAudioMappingsRemoved(
+        self, id: UniqueIdentifier(id), streamPortIndex: sp,
+        mappings: _copyMappings(ptr, count)
+      )
+    }
+    owner.setOnStreamInputInfoChanged { [weak self] id, si, info, fromGet in
+      guard let self, let d = delegate, let info else { return }
+      d.onStreamInputInfoChanged(
+        self,
+        id: UniqueIdentifier(id),
+        streamIndex: si,
+        info: StreamInfo(info.pointee),
+        fromGetResponse: fromGet
+      )
+    }
+    owner.setOnStreamOutputInfoChanged { [weak self] id, si, info, fromGet in
+      guard let self, let d = delegate, let info else { return }
+      d.onStreamOutputInfoChanged(
+        self,
+        id: UniqueIdentifier(id),
+        streamIndex: si,
+        info: StreamInfo(info.pointee),
+        fromGetResponse: fromGet
+      )
+    }
+    owner.setOnStreamInputStarted { [weak self] id, si in
+      guard let self, let d = delegate else { return }
+      d.onStreamInputStarted(self, id: UniqueIdentifier(id), streamIndex: si)
+    }
+    owner.setOnStreamOutputStarted { [weak self] id, si in
+      guard let self, let d = delegate else { return }
+      d.onStreamOutputStarted(self, id: UniqueIdentifier(id), streamIndex: si)
+    }
+    owner.setOnStreamInputStopped { [weak self] id, si in
+      guard let self, let d = delegate else { return }
+      d.onStreamInputStopped(self, id: UniqueIdentifier(id), streamIndex: si)
+    }
+    owner.setOnStreamOutputStopped { [weak self] id, si in
+      guard let self, let d = delegate else { return }
+      d.onStreamOutputStopped(self, id: UniqueIdentifier(id), streamIndex: si)
+    }
+    owner.setOnMaxTransitTimeChanged { [weak self] id, si, ns in
+      guard let self, let d = delegate else { return }
+      d.onMaxTransitTimeChanged(
+        self,
+        id: UniqueIdentifier(id),
+        streamIndex: si,
+        maxTransitTime: ns
+      )
+    }
+
+    // ---- Names ---------------------------------------------------------
+    owner.setOnEntityNameChanged { [weak self] id, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onEntityNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnEntityGroupNameChanged { [weak self] id, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onEntityGroupNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnConfigurationNameChanged { [weak self] id, cfg, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onConfigurationNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnAudioUnitNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onAudioUnitNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        audioUnitIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnStreamInputNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onStreamInputNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        streamIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnStreamOutputNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onStreamOutputNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        streamIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnJackInputNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onJackInputNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        jackIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnJackOutputNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onJackOutputNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        jackIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnAvbInterfaceNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onAvbInterfaceNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        avbInterfaceIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnClockSourceNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onClockSourceNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        clockSourceIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnMemoryObjectNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onMemoryObjectNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        memoryObjectIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnAudioClusterNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onAudioClusterNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        audioClusterIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnControlNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onControlNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        controlIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnClockDomainNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onClockDomainNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        clockDomainIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnTimingNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onTimingNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        timingIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnPtpInstanceNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onPtpInstanceNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        ptpInstanceIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+    owner.setOnPtpPortNameChanged { [weak self] id, cfg, idx, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onPtpPortNameChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        ptpPortIndex: idx,
+        name: String(name.pointee.str())
+      )
+    }
+
+    // ---- Sampling rates ------------------------------------------------
+    owner.setOnAudioUnitSamplingRateChanged { [weak self] id, idx, rate in
+      guard let self, let d = delegate else { return }
+      d.onAudioUnitSamplingRateChanged(
+        self,
+        id: UniqueIdentifier(id),
+        audioUnitIndex: idx,
+        samplingRate: rate
+      )
+    }
+    owner.setOnVideoClusterSamplingRateChanged { [weak self] id, idx, rate in
+      guard let self, let d = delegate else { return }
+      d.onVideoClusterSamplingRateChanged(
+        self,
+        id: UniqueIdentifier(id),
+        videoClusterIndex: idx,
+        samplingRate: rate
+      )
+    }
+    owner.setOnSensorClusterSamplingRateChanged { [weak self] id, idx, rate in
+      guard let self, let d = delegate else { return }
+      d.onSensorClusterSamplingRateChanged(
+        self,
+        id: UniqueIdentifier(id),
+        sensorClusterIndex: idx,
+        samplingRate: rate
+      )
+    }
+
+    // ---- Counters ------------------------------------------------------
+    owner.setOnEntityCountersChanged { [weak self] id, valid, ptr in
+      guard let self, let d = delegate, let ptr else { return }
+      d.onEntityCountersChanged(
+        self,
+        id: UniqueIdentifier(id),
+        valid: EntityCounterValidFlags(rawValue: valid),
+        counters: DescriptorCounters(_copyCounters(ptr))
+      )
+    }
+    owner.setOnAvbInterfaceCountersChanged { [weak self] id, idx, valid, ptr in
+      guard let self, let d = delegate, let ptr else { return }
+      d.onAvbInterfaceCountersChanged(
+        self, id: UniqueIdentifier(id), avbInterfaceIndex: idx,
+        valid: AvbInterfaceCounterValidFlags(rawValue: valid),
+        counters: DescriptorCounters(_copyCounters(ptr))
+      )
+    }
+    owner.setOnClockDomainCountersChanged { [weak self] id, idx, valid, ptr in
+      guard let self, let d = delegate, let ptr else { return }
+      d.onClockDomainCountersChanged(
+        self, id: UniqueIdentifier(id), clockDomainIndex: idx,
+        valid: ClockDomainCounterValidFlags(rawValue: valid),
+        counters: DescriptorCounters(_copyCounters(ptr))
+      )
+    }
+    owner.setOnStreamInputCountersChanged { [weak self] id, idx, valid, ptr in
+      guard let self, let d = delegate, let ptr else { return }
+      d.onStreamInputCountersChanged(
+        self, id: UniqueIdentifier(id), streamIndex: idx,
+        valid: StreamInputCounterValidFlags(rawValue: valid),
+        counters: DescriptorCounters(_copyCounters(ptr))
+      )
+    }
+    owner.setOnStreamOutputCountersChanged { [weak self] id, idx, valid, ptr in
+      guard let self, let d = delegate, let ptr else { return }
+      d.onStreamOutputCountersChanged(
+        self, id: UniqueIdentifier(id), streamIndex: idx,
+        valid: StreamOutputCounterValidFlags(rawValue: valid),
+        counters: DescriptorCounters(_copyCounters(ptr))
+      )
+    }
+
+    // ---- AVB / AS path / control values --------------------------------
+    owner.setOnAvbInfoChanged { [weak self] id, idx, info in
+      guard let self, let d = delegate, let info else { return }
+      d.onAvbInfoChanged(
+        self,
+        id: UniqueIdentifier(id),
+        avbInterfaceIndex: idx,
+        info: AvbInfo(info.pointee)
+      )
+    }
+    owner.setOnAsPathChanged { [weak self] id, idx, path in
+      guard let self, let d = delegate, let path else { return }
+      d.onAsPathChanged(
+        self,
+        id: UniqueIdentifier(id),
+        avbInterfaceIndex: idx,
+        asPath: AsPath(path.pointee)
+      )
+    }
+    owner.setOnControlValuesChanged { [weak self] id, idx, ptr, len in
+      guard let self, let d = delegate else { return }
+      let bytes: [UInt8] = if let ptr, len > 0 {
+        Array(UnsafeBufferPointer(start: ptr, count: len))
+      } else {
+        []
+      }
+      d.onControlValuesChanged(
+        self,
+        id: UniqueIdentifier(id),
+        controlIndex: idx,
+        packedControlValues: bytes
+      )
+    }
+
+    // ---- Memory object / operation -------------------------------------
+    owner.setOnMemoryObjectLengthChanged { [weak self] id, cfg, idx, length in
+      guard let self, let d = delegate else { return }
+      d.onMemoryObjectLengthChanged(
+        self,
+        id: UniqueIdentifier(id),
+        configurationIndex: cfg,
+        memoryObjectIndex: idx,
+        length: length
+      )
+    }
+    owner.setOnOperationStatus { [weak self] id, dt, di, op, pct in
+      guard let self, let d = delegate else { return }
+      d.onOperationStatus(
+        self,
+        id: UniqueIdentifier(id),
+        descriptorType: dt,
+        descriptorIndex: di,
+        operationID: op,
+        percentComplete: pct
+      )
+    }
+
+    // ---- Milan MVU -----------------------------------------------------
+    owner.setOnSystemUniqueIDChanged { [weak self] id, sys, name in
+      guard let self, let d = delegate, let name else { return }
+      d.onSystemUniqueIDChanged(
+        self,
+        id: UniqueIdentifier(id),
+        systemUniqueID: UniqueIdentifier(sys),
+        systemName: String(name.pointee.str())
+      )
+    }
+    owner.setOnMediaClockReferenceInfoChanged {
+      [weak self] id, cd, def, hasPrio, prio, hasName, name in
+      guard let self, let d = delegate else { return }
+      let resolvedName: String? = (hasName && name != nil)
+        ? String(name!.pointee.str()) : nil
+      d.onMediaClockReferenceInfoChanged(
+        self, id: UniqueIdentifier(id), clockDomainIndex: cd,
+        defaultPriority: DefaultMediaClockReferencePriority(def),
+        info: MediaClockReferenceInfo(
+          userMediaClockPriority: hasPrio ? prio : nil,
+          mediaClockDomainName: resolvedName
+        )
+      )
+    }
+    owner.setOnBindStream { [weak self] id, si, talkerID, talkerIdx, flags in
+      guard let self, let d = delegate else { return }
+      d.onBindStream(
+        self,
+        id: UniqueIdentifier(id),
+        streamIndex: si,
+        talker: StreamIdentification(
+          entityID: UniqueIdentifier(talkerID),
+          streamIndex: talkerIdx
+        ),
+        flags: BindStreamFlags(rawValue: flags)
+      )
+    }
+    owner.setOnUnbindStream { [weak self] id, si in
+      guard let self, let d = delegate else { return }
+      d.onUnbindStream(self, id: UniqueIdentifier(id), streamIndex: si)
+    }
+    owner.setOnStreamInputInfoExChanged { [weak self] id, si, info in
+      guard let self, let d = delegate, let info else { return }
+      let raw = info.pointee
+      let wrapped = StreamInputInfoEx(
+        talkerStream: StreamIdentification(
+          entityID: UniqueIdentifier(raw.talkerStream.entityID),
+          streamIndex: raw.talkerStream.streamIndex
+        ),
+        probingStatus: ProbingStatus(UInt8(raw.probingStatus.rawValue)),
+        acmpStatus: AcmpStatus(rawValue: raw.acmpStatus.getValue())
+      )
+      d.onStreamInputInfoExChanged(
+        self,
+        id: UniqueIdentifier(id),
+        streamIndex: si,
+        info: wrapped
+      )
+    }
+
+    // ---- Statistics ----------------------------------------------------
+    owner.setOnAecpRetry { [weak self] id in
+      guard let self, let d = delegate else { return }
+      d.onAecpRetry(self, id: UniqueIdentifier(id))
+    }
+    owner.setOnAecpTimeout { [weak self] id in
+      guard let self, let d = delegate else { return }
+      d.onAecpTimeout(self, id: UniqueIdentifier(id))
+    }
+    owner.setOnAecpUnexpectedResponse { [weak self] id in
+      guard let self, let d = delegate else { return }
+      d.onAecpUnexpectedResponse(self, id: UniqueIdentifier(id))
+    }
+    owner.setOnAecpResponseTime { [weak self] id, ms in
+      guard let self, let d = delegate else { return }
+      d.onAecpResponseTime(self, id: UniqueIdentifier(id), responseTime: ms)
+    }
+    owner.setOnAemAecpUnsolicitedReceived { [weak self] id, seq in
+      guard let self, let d = delegate else { return }
+      d.onAemAecpUnsolicitedReceived(
+        self,
+        id: UniqueIdentifier(id),
+        sequenceID: seq
+      )
+    }
+    owner.setOnMvuAecpUnsolicitedReceived { [weak self] id, seq in
+      guard let self, let d = delegate else { return }
+      d.onMvuAecpUnsolicitedReceived(
+        self,
+        id: UniqueIdentifier(id),
+        sequenceID: seq
+      )
+    }
+
+    owner.attachDelegate()
   }
 }
 
-private func LocalEntity_onEntityOnline(
-  _ handle: UnsafeMutableRawPointer?,
-  _ entityID: avdecc_unique_identifier_t,
-  _ entity: avdecc_entity_cp?
-) {
-  guard let entity else { return }
-  LocalEntity.withDelegate(handle) {
-    $0.delegate?.onEntityOnline($0, id: UniqueIdentifier(entityID), entity: Entity(entity.pointee))
-  }
+/// Copy a borrowed `uint32_t const* counters[32]` callback parameter into
+/// a heap array. la_avdecc owns the underlying storage; callers must not
+/// hold the pointer past the callback.
+private func _copyCounters(_ ptr: UnsafePointer<UInt32>) -> [UInt32] {
+  Array(UnsafeBufferPointer(start: ptr, count: 32))
 }
 
-private func LocalEntity_onEntityUpdate(
-  _ handle: UnsafeMutableRawPointer?,
-  _ entityID: avdecc_unique_identifier_t,
-  _ entity: avdecc_entity_cp?
-) {
-  guard let entity else { return }
-  LocalEntity.withDelegate(handle) {
-    $0.delegate?.onEntityUpdate($0, id: UniqueIdentifier(entityID), entity: Entity(entity.pointee))
+/// Copy a borrowed audio-mapping array out of a la_avdecc callback
+/// parameter into Swift-owned storage. Tolerates nil/zero-count.
+private func _copyMappings(
+  _ ptr: UnsafePointer<la.avdecc.entity.model.AudioMapping>?, _ count: Int
+) -> [AudioMapping] {
+  guard let ptr, count > 0 else { return [] }
+  var out: [AudioMapping] = []
+  out.reserveCapacity(count)
+  for i in 0..<count {
+    out.append(AudioMapping(ptr[i]))
   }
-}
-
-private func LocalEntity_onEntityOffline(
-  _ handle: UnsafeMutableRawPointer?,
-  _ entityID: avdecc_unique_identifier_t
-) {
-  LocalEntity.withDelegate(handle) {
-    $0.delegate?.onEntityOffline($0, id: UniqueIdentifier(entityID))
-  }
+  return out
 }

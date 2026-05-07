@@ -27,10 +27,13 @@ Architecture = "arm64"
 // FIXME: this is clearly not right
 
 let AvdeccBuildDir = "_build_\(Platform)_\(Architecture)_makefiles_\(BuildConfiguration)"
-let AvdeccArtifactRoot = ".build/artifacts/avdeccswift/avdecc"
+// Absolute paths: unsafeFlags is passed verbatim to clang/ld, whose CWD is
+// not the package root, so relative paths to the artifact bundle don't
+// resolve at link time.
+let PackageRoot = FileManager.default.currentDirectoryPath
+let AvdeccArtifactRoot = "\(PackageRoot)/.build/artifacts/avdeccswift/avdecc"
 let AvdeccIncludePath = "\(AvdeccArtifactRoot)/include"
 let AvdeccCxxLibPath = "\(AvdeccArtifactRoot)/\(AvdeccBuildDir)/src"
-let AvdeccCLibPath = "\(AvdeccCxxLibPath)/bindings/c"
 let AvdeccCxxControllerLibPath = "\(AvdeccCxxLibPath)/controller"
 let AvdeccAltLibPath = "/usr/local/lib"
 let AvdeccDebugSuffix = BuildConfiguration == "debug" ? "-d" : ""
@@ -45,8 +48,6 @@ AvdeccLinkerSettings += [.linkedLibrary("BlocksRuntime")]
 let AvdeccUnsafeLinkerFlags: [String] = [
   "-Xlinker", "-L", "-Xlinker", AvdeccCxxLibPath,
   "-Xlinker", "-rpath", "-Xlinker", AvdeccCxxLibPath,
-  "-Xlinker", "-L", "-Xlinker", AvdeccCLibPath,
-  "-Xlinker", "-rpath", "-Xlinker", AvdeccCLibPath,
   "-Xlinker", "-L", "-Xlinker", AvdeccCxxControllerLibPath,
   "-Xlinker", "-rpath", "-Xlinker", AvdeccCxxControllerLibPath,
   "-Xlinker", "-L", "-Xlinker", AvdeccAltLibPath,
@@ -56,7 +57,7 @@ let AvdeccUnsafeLinkerFlags: [String] = [
 let package = Package(
   name: "AVDECCSwift",
   platforms: [
-    .macOS(.v13),
+    .macOS(.v15),
   ],
   products: [
     .library(
@@ -71,6 +72,7 @@ let package = Package(
   dependencies: [
     // Dependencies declare other packages that this package depends on.
     .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.0"),
+    .package(url: "https://github.com/apple/swift-log", from: "1.5.0"),
     // .package(url: "https://github.com/lhoward/AsyncExtensions", branch: "linux"),
   ],
   targets: [
@@ -81,49 +83,58 @@ let package = Package(
 //            checksum: "8eeb26c186329c7849c18a14837b6d78cea5d9aecb3e7fbb720274869e79a810"
     ),
     .target(
-      name: "CAVDECC",
+      name: "CxxAVDECC",
       dependencies: [
         "avdecc",
       ],
-      exclude: [
-        "avdecc/\(AvdeccBuildDir)",
-        "avdecc/examples",
-        "avdecc/externals",
-        "avdecc/resources",
-        "avdecc/src",
-        "avdecc/scripts",
-        "avdecc/tests",
-      ],
-      cSettings: [
-        .headerSearchPath("avdecc/include"),
-        .headerSearchPath("avdecc/externals/nih/include"),
-      ],
+      // The la_avdecc submodule lives at Sources/CxxAVDECC/avdecc — its
+      // .cpp/.c sources would otherwise fold into this target and trip
+      // SwiftPM's "mixed language source files" check. The CxxAVDECC
+      // target itself is header-only (everything Swift sees is in
+      // include/AVDECCSwiftHelpers.hpp); excluding the submodule leaves
+      // SwiftPM with nothing to compile, which is fine for a publicHeaders
+      // target.
+      exclude: ["avdecc"],
+      publicHeadersPath: "include",
       cxxSettings: [
-        .headerSearchPath("avdecc/include"),
-        .headerSearchPath("avdecc/externals/nih/include"),
-      ],
-      swiftSettings: [
+        // la_avdecc public headers + nih helper headers ship inside the
+        // artifact bundle (`avdecc.artifactbundle.zip`), which SwiftPM
+        // extracts to `.build/artifacts/avdeccswift/avdecc/include/...`.
+        // We use that path (not the la_avdecc git submodule) because
+        // SwiftPM doesn't auto-init submodules at consumer-side checkout
+        // — the submodule directory is empty when AVDECCSwift is pulled
+        // as a transitive dependency.
+        .unsafeFlags(["-I\(AvdeccIncludePath)"]),
+        // Clang blocks: Swift closures import as blocks, blocks fold into
+        // std::function via the converting constructor. This is how Swift
+        // drives the la_avdecc handlers without per-method bridges.
+        .unsafeFlags(["-fblocks"]),
       ],
       linkerSettings: [
-        .linkedLibrary("la_avdecc_c\(AvdeccDebugSuffix)"),
         .linkedLibrary("la_avdecc_cxx\(AvdeccDebugSuffix)"),
         .unsafeFlags(AvdeccUnsafeLinkerFlags),
-      ] + AvdeccLinkerSettings
+      ] + AvdeccLinkerSettings // BlocksRuntime on Linux for Block_copy/Block_release
     ),
     .target(
       name: "AVDECCSwift",
       dependencies: [
-        "CAVDECC",
-      ],
-      cSettings: [
-        .headerSearchPath("../CAVDECC/avdecc/include"),
-        .headerSearchPath("../CAVDECC/avdecc/externals/nih/include"),
+        "CxxAVDECC",
+        .product(name: "Logging", package: "swift-log"),
       ],
       cxxSettings: [
-        .headerSearchPath("../CAVDECC/avdecc/include"),
-        .headerSearchPath("../CAVDECC/avdecc/externals/nih/include"),
+        // CxxAVDECC's public headers `#include <la/avdecc/...>`; SwiftPM
+        // doesn't auto-propagate a target's own header search paths to
+        // consumers, so each consuming target re-declares them. The
+        // artifact bundle's include/ tree is the source of truth (see
+        // CxxAVDECC target above).
+        .unsafeFlags(["-I\(AvdeccIncludePath)"]),
       ],
       swiftSettings: [
+        .interoperabilityMode(.Cxx),
+        // Swift's clang importer needs -I flags too: it parses CxxAVDECC.h,
+        // which #includes <la/avdecc/...>. cxxSettings above only affects
+        // C/C++ compilation; route the same path through the importer.
+        .unsafeFlags(["-Xcc", "-I\(AvdeccIncludePath)", "-Xcc", "-fblocks"]),
       ]
     ),
     .executableTarget(
@@ -132,12 +143,26 @@ let package = Package(
         "AVDECCSwift",
         .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
       ],
-      path: "Examples/Discovery"
+      path: "Examples/Discovery",
+      cxxSettings: [
+        .unsafeFlags(["-I\(AvdeccIncludePath)"]),
+      ],
+      swiftSettings: [
+        .interoperabilityMode(.Cxx),
+        .unsafeFlags(["-Xcc", "-I\(AvdeccIncludePath)", "-Xcc", "-fblocks"]),
+      ]
     ),
     .testTarget(
       name: "AVDECCSwiftTests",
       dependencies: [
         .target(name: "AVDECCSwift"),
+      ],
+      cxxSettings: [
+        .unsafeFlags(["-I\(AvdeccIncludePath)"]),
+      ],
+      swiftSettings: [
+        .interoperabilityMode(.Cxx),
+        .unsafeFlags(["-Xcc", "-I\(AvdeccIncludePath)", "-Xcc", "-fblocks"]),
       ]
     ),
   ],

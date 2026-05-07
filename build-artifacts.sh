@@ -2,14 +2,6 @@
 
 set -e
 
-#git submodule init
-#git submodule update
-
-#pushd Sources/CAVDECC/avdecc
-#git submodule init
-#git submodule update
-#popd
-
 ARCH=`arch`
 
 if [ "$ARCH" == "aarch64" ]; then
@@ -38,18 +30,15 @@ if [ "$PLATFORM" == "mac" ]; then
     BUILDLDFLAGS_STATIC=""
 else
     ARCHS="-arch ${ARCH}"
-    CLANGDIR=/opt/swift
     SOSUFFIX=so
     CONFIG=release
-    BUILDCFLAGS="-I${CLANGDIR}/usr/lib/swift -fblocks"
-    BUILDLDFLAGS_SHARED="-L${CLANGDIR}/usr/lib/swift/${PLATFORM} -Wl,-rpath,${CLANGDIR}/usr/lib/swift/${PLATFORM} -lBlocksRuntime"
-    BUILDLDFLAGS_STATIC="-Wl,-L${CLANGDIR}/usr/lib/swift_static/${PLATFORM} -lBlocksRuntime"
+    BUILDCFLAGS="-fblocks"
 fi
 
 # for macOS, build release as otherwise artifact bundle exceeds non-LFS GH size
 BUILDDIR="_build_${PLATFORM}_${ARCH}_makefiles_${CONFIG}"
 
-pushd Sources/CAVDECC/avdecc
+pushd Sources/CxxAVDECC/avdecc
 echo "Build directory is $BUILDDIR with flags $BUILDFLAGS"
 rm -rf $BUILDDIR
 ./gen_cmake.sh ${ARCHS} \
@@ -59,7 +48,7 @@ rm -rf $BUILDDIR
     -a "-DCMAKE_CXX_FLAGS=${BUILDCFLAGS}" \
     -a "-DCMAKE_SHARED_LINKER_FLAGS=${BUILDLDFLAGS_SHARED}" \
     -a "-DCMAKE_STATIC_LINKER_FLAGS=" \
-    -a "-DBUILD_AVDECC_INTERFACE_PCAP_DYNAMIC_LINKING=ON" \
+    -a "-DBUILD_AVDECC_INTERFACE_PCAP_DYNAMIC_LINKING=OFF" \
     -a "-DENABLE_AVDECC_FEATURE_JSON=OFF" \
     -a "-DBUILD_AVDECC_LIB_STATIC_RT_SHARED=FALSE" \
     -a "-DINSTALL_AVDECC_LIB_STATIC=FALSE" \
@@ -67,15 +56,27 @@ rm -rf $BUILDDIR
     -a "-DBUILD_AVDECC_EXAMPLES=FALSE" \
     -a "-DBUILD_AVDECC_TESTS=FALSE" \
     -c "Unix Makefiles" \
-    "-${CONFIG}" \
-    -build-c
+    "-${CONFIG}"
 
 cp ../../../info.json.in info.json
 pushd $BUILDDIR
 make -j9
 popd
 
+# Stage la_avdecc + nih headers under one tree so the artifact bundle ships
+# both. la_avdecc public headers `#include <la/networkInterfaceHelper/...>`
+# from the nih external; without those in the bundle, consumers' clang
+# importer can't parse the la_avdecc headers when they pull in CxxAVDECC.
+cp -r externals/nih/include/la/networkInterfaceHelper include/la/
+
+# C bindings (la_avdecc_c) intentionally not built/shipped — Swift talks to
+# la_avdecc directly via Swift 6 C++ interop in the CxxAVDECC target, so we
+# only need the C++ library and the controller library.
+zip -d ../../../avdecc.artifactbundle.zip '*.dSYM*' 2>/dev/null || true
 zip --symlinks -r ../../../avdecc.artifactbundle.zip info.json include \
     $BUILDDIR/src/controller/libla_avdecc_controller_cxx* \
-    $BUILDDIR/src/bindings/c/libla_avdecc_c* \
-    $BUILDDIR/src/libla_avdecc_cxx*
+    $BUILDDIR/src/libla_avdecc_cxx* \
+    -x '*.dSYM*'
+
+# Remove the staged nih headers so the la_avdecc submodule stays clean.
+rm -rf include/la/networkInterfaceHelper
