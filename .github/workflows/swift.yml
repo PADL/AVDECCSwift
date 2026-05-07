@@ -20,7 +20,7 @@ jobs:
       - name: Checkout submodules
         run: |
           git submodule init && git submodule update
-          (cd Sources/CAVDECC/avdecc && git submodule init && git submodule update)
+          (cd Sources/CxxAVDECC/avdecc && git submodule init && git submodule update)
       - name: Version
         run: swift --version
       - name: Build
@@ -43,7 +43,7 @@ jobs:
       - name: Checkout submodules
         run: |
           git submodule init && git submodule update
-          (cd Sources/CAVDECC/avdecc && git submodule init && git submodule update)
+          (cd Sources/CxxAVDECC/avdecc && git submodule init && git submodule update)
       - name: Version
         run: swift --version
       - name: Build

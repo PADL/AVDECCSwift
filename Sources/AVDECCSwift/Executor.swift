@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023, PADL Software Pty Ltd
+ * Copyright (C) 2023-2026, PADL Software Pty Ltd
  *
  * This file is part of AVDECCSwift.
  *
@@ -17,46 +17,54 @@
  * along with AVDECCSwift.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import CAVDECC
+internal import CxxAVDECC
 
-public enum ExecutorError: UInt8, Error {
-  case alreadyExists = 1
-  case notFound = 2
-  case invalidProtocolInterfaceHandle = 98
-  case internalError = 99
+/// Error thrown by `Executor` factories. Distinct from
+/// `ProtocolInterfaceError` so callers can `catch let e as ExecutorError`
+/// when they know they're dealing with executor-registration failures
+/// (typically a name collision via std::invalid_argument from
+/// `ExecutorManager::registerExecutor`, surfaced here as
+/// `code == .internalError` with the std exception's `what()` text in
+/// `message`). Carries the same shape as the other AVDECCSwift error
+/// types — see `AvdeccCapturedError`.
+public struct ExecutorError: AvdeccCapturedError {
+  public let code: ProtocolInterfaceErrorCode
+  public let message: String
 
-  init(_ value: avdecc_executor_error_t) {
-    self = Self(rawValue: value) ?? .internalError
+  init(_ captured: AVDECCSwift.CapturedException) {
+    code = ProtocolInterfaceErrorCode(rawValue: captured.protocolInterfaceErrorCode)
+      ?? .internalError
+    message = String(captured.message)
   }
 }
 
-// FIXME: integrate C++ library with libdispatch
-
-public final class Executor {
-  nonisolated(unsafe) public static let shared = try! Executor()
+/// Wraps an la_avdecc dispatch-queue executor + ExecutorManager registration.
+/// Backed by AVDECCSwift::ExecutorOwner — a refcounted C++ class imported as
+/// a Swift foreign reference type via SWIFT_SHARED_REFERENCE; Swift ARC
+/// drives retain/release. The C++ wrapper exists because Swift 6.3's
+/// importer cannot see la_avdecc's executor types directly.
+public struct Executor {
+  public nonisolated(unsafe) static let shared = try! Executor()
 
   let library = Library.shared
-  var handle: UnsafeMutableRawPointer!
+  public let name: String
+
+  let owner: AVDECCSwift.ExecutorOwner
 
   public init(name: String = DefaultExecutorName) throws {
-    let err = LA_AVDECC_Executor_createQueueExecutor(name, &handle)
-    if err != 0 {
-      throw ExecutorError(err)
-    }
+    var captured = AVDECCSwift.CapturedException()
+    let owner = AVDECCSwift.ExecutorOwner.create(std.string(name), &captured)
+    guard let owner else { throw ExecutorError(captured) }
+    self.name = name
+    self.owner = owner
   }
 
-  // Same rationale as ProtocolInterface.close(): tear down before
-  // __cxa_finalize so s_ExecutorWrapperManager is empty when its
-  // destructor runs and doesn't call back into ExecutorManager's
-  // partly-destroyed singleton. Idempotent.
+  /// Eager teardown of the la_avdecc executor + its ExecutorManager
+  /// registration. Idempotent. The C++ ExecutorOwner stays alive (refcount
+  /// > 0) until all Swift references release, but the underlying executor
+  /// is gone.
   public func close() {
-    guard handle != nil else { return }
-    LA_AVDECC_Executor_destroy(handle)
-    handle = nil
-  }
-
-  deinit {
-    close()
+    owner.close()
   }
 }
 

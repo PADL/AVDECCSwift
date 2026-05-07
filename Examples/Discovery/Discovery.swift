@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023, PADL Software Pty Ltd
+ * Copyright (C) 2023-2026, PADL Software Pty Ltd
  *
  * This file is part of AVDECCSwift.
  *
@@ -19,25 +19,40 @@
 
 import AsyncAlgorithms
 import AVDECCSwift
-import CAVDECC
+import Dispatch
 import Foundation
+import Logging
+#if canImport(Glibc)
+import Glibc
+#elseif canImport(Darwin)
+import Darwin
+#endif
 
 @main
-public actor Discovery: ProtocolInterfaceObserver {
+public final class Discovery: ProtocolInterfaceObserver, @unchecked Sendable {
   public static func main() async throws {
+    // Route everything through a stderr StreamLogHandler at .trace so
+    // both Swift-side and la_avdecc-side log lines surface. swift-log
+    // defaults to .info and an opaque default handler on Linux; without
+    // this the AvdeccLogger bridge produces no visible output.
+    LoggingSystem.bootstrap { label in
+      var h = StreamLogHandler.standardError(label: label)
+      h.logLevel = .trace
+      return h
+    }
+
     if CommandLine.arguments.count != 2 {
       print("Usage: \(CommandLine.arguments[0]) [interface|/dev/ttyXXX]")
       exit(1)
     }
 
     let discovery: Discovery
-
     do {
       let interfaceID = CommandLine.arguments[1]
       if interfaceID.hasPrefix("/") {
         discovery = try Discovery(type: .serial, interfaceID: interfaceID)
       } else {
-        discovery = try Discovery(type: .pCap, interfaceID: CommandLine.arguments[1])
+        discovery = try Discovery(type: .pCap, interfaceID: interfaceID)
       }
     } catch {
       debugPrint("failed to initialize AVDECC library: \(error)")
@@ -45,122 +60,109 @@ public actor Discovery: ProtocolInterfaceObserver {
     }
 
     do {
-      try await discovery.localEntity_test()
+      try await discovery.run()
     } catch {
       debugPrint("local entity test failed with \(error)")
     }
   }
 
   private let protocolInterface: ProtocolInterface
-  private let entitiesChannel = AsyncChannel<Entity>()
-  private let progID = UInt16(5)
+  private let entitiesChannel = AsyncChannel<UniqueIdentifier>()
+  // Hold the dispatch sources so they outlive `init` — destruction
+  // tears down the kernel-level signal hook.
+  private var signalSources: [DispatchSourceSignal] = []
+  // Forwards la_avdecc's internal log to swift-log. Must outlive the
+  // ProtocolInterface so transport-error / state-machine warnings
+  // surface on stderr.
+  private let avdeccLogger: AvdeccLogger
 
   init(type: ProtocolInterfaceType, interfaceID: String) throws {
+    avdeccLogger = AvdeccLogger(forwardingTo: Logger(label: "avdecc"), level: .debug)
     protocolInterface = try ProtocolInterface(type: type, interfaceID: interfaceID)
     protocolInterface.observer = self
+    installShutdownHandlers()
   }
 
-  func localEntity_test() async throws {
-    var commonInformation = EntityCommonInformation()
-    commonInformation.entityID = try protocolInterface.getDynamicEID()
-    commonInformation.controllerCapabilities = avdecc_entity_controller_capabilities_implemented
+  // SIGINT/SIGTERM: finish the entitiesChannel so the for-await loop in
+  // `run()` exits naturally, letting the explicit close() chain run.
+  // Without this, Ctrl-C terminates the process mid-flight and the
+  // pcap capture buffer + 4 la_avdecc threads (Executor, WatchDog,
+  // state-machine, dispatch worker) leak. `signal(SIGINT, SIG_IGN)`
+  // is required first because libdispatch's signal source competes
+  // with the default disposition.
+  private func installShutdownHandlers() {
+    for sig in [SIGINT, SIGTERM] {
+      signal(sig, SIG_IGN)
+      let src = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+      src.setEventHandler { [weak self] in
+        self?.entitiesChannel.finish()
+      }
+      src.resume()
+      signalSources.append(src)
+    }
+  }
 
-    var interfaceInfo = EntityInterfaceInformation()
-    interfaceInfo.mac_address = try protocolInterface.macAddress
+  func run() async throws {
+    let entityID = try protocolInterface.getDynamicEID()
+    let localEntity = try LocalEntity(protocolInterface: protocolInterface, entityID: entityID)
 
-    let entity = Entity(
-      commonInformation: commonInformation,
-      interfacesInformation: [interfaceInfo]
-    )
-    let localEntity = try LocalEntity(protocolInterface: protocolInterface, entity: entity)
-
-    for await entity in entitiesChannel {
+    for await remoteEntityID in entitiesChannel {
       Task {
-        let entityDescriptor = try await localEntity
-          .readEntityDescriptor(id: entity.entityID)
-        debugPrint(
-          "read entity descriptor: \(entityDescriptor) for entity \(entity.entityID)"
-        )
-
-        if let asPath = try? await localEntity.getAsPath(
-          id: entity.entityID,
-          avbInterfaceIndex:
-          0
-        ) {
-          debugPrint("read gPTP AS path: \(asPath)")
+        do {
+          let descriptor = try await localEntity.readEntityDescriptor(id: remoteEntityID)
+          debugPrint("entity \(remoteEntityID) descriptor: \(descriptor)")
+        } catch {
+          debugPrint("readEntityDescriptor failed for \(remoteEntityID): \(error)")
         }
 
-        if let avbInfo = try? await localEntity.getAvbInfo(
-          id: entity.entityID,
-          avbInterfaceIndex:
-          0
-        ) {
-          debugPrint("read AVB info: \(avbInfo)")
+        if let asPath = try? await localEntity.getAsPath(id: remoteEntityID, avbInterfaceIndex: 0) {
+          debugPrint("gPTP AS path: \(asPath)")
+        }
+
+        if let avbInfo = try? await localEntity.getAvbInfo(id: remoteEntityID, avbInterfaceIndex: 0) {
+          debugPrint("AVB info: \(avbInfo)")
         }
       }
     }
 
-    try? protocolInterface.releaseDynamicEID(commonInformation.entityID)
+    // Channel finished (SIGINT/SIGTERM); release entity ID and tear
+    // down both wrappers explicitly so pcap_close + state-machine
+    // shutdown + executor join all happen before process exit.
+    try? protocolInterface.releaseDynamicEID(entityID)
+    localEntity.close()
+    protocolInterface.close()
   }
 
-  public nonisolated func onTransportError(_: ProtocolInterface) {
+  // MARK: - ProtocolInterfaceObserver
+
+  public func onTransportError(_: ProtocolInterface) {
     debugPrint("transport error")
   }
 
-  public nonisolated func onLocalEntityOnline(
-    _ protocolInterface: ProtocolInterface,
-    _ entity: Entity
-  ) {
-    debugPrint("local entity \(entity) online")
+  public func onLocalEntityOnline(_: ProtocolInterface, entity: Entity) {
+    debugPrint("local entity \(entity.entityID) online")
   }
 
-  public nonisolated func onLocalEntityOffline(_: ProtocolInterface, id: UniqueIdentifier) {
+  public func onLocalEntityOffline(_: ProtocolInterface, id: UniqueIdentifier) {
     debugPrint("local entity \(id) offline")
   }
 
-  public nonisolated func onLocalEntityUpdated(_: ProtocolInterface, _ entity: Entity) {
-    debugPrint("local entity \(entity) updated")
+  public func onLocalEntityUpdated(_: ProtocolInterface, entity: Entity) {
+    debugPrint("local entity \(entity.entityID) updated")
   }
 
-  public nonisolated func onRemoteEntityOnline(_: ProtocolInterface, _ entity: Entity) {
-    debugPrint("remote entity \(entity) online")
-    Task {
-      await entitiesChannel.send(entity)
+  public func onRemoteEntityOnline(_: ProtocolInterface, entity: Entity) {
+    debugPrint("remote entity \(entity.entityID) online")
+    Task { [id = entity.entityID] in
+      await entitiesChannel.send(id)
     }
   }
 
-  public nonisolated func onRemoteEntityOffline(_: ProtocolInterface, id: UniqueIdentifier) {
+  public func onRemoteEntityOffline(_: ProtocolInterface, id: UniqueIdentifier) {
     debugPrint("remote entity \(id) offline")
   }
 
-  public nonisolated func onRemoteEntityUpdated(_: ProtocolInterface, _ entity: Entity) {
-    debugPrint("remote entity \(entity) updated")
+  public func onRemoteEntityUpdated(_: ProtocolInterface, entity: Entity) {
+    debugPrint("remote entity \(entity.entityID) updated")
   }
-
-  public nonisolated func onAecpAemCommand(
-    _: ProtocolInterface,
-    pdu: avdecc_protocol_aem_aecpdu_t
-  ) {}
-  public nonisolated func onAecpAemUnsolicitedResponse(
-    _: ProtocolInterface,
-    pdu: avdecc_protocol_aem_aecpdu_t
-  ) {}
-  public nonisolated func onAecpAemIdentifyNotification(
-    _: ProtocolInterface,
-    pdu: avdecc_protocol_aem_aecpdu_t
-  ) {}
-
-  public nonisolated func onAcmpCommand(_: ProtocolInterface, pdu: avdecc_protocol_acmpdu_t) {}
-  public nonisolated func onAcmpResponse(_: ProtocolInterface, pdu: avdecc_protocol_acmpdu_t) {}
-
-  public nonisolated func onAdpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_adpdu_t) {}
-  public nonisolated func onAemAecpduReceived(
-    _: ProtocolInterface,
-    pdu: avdecc_protocol_aem_aecpdu_t
-  ) {}
-  public nonisolated func onMvuAecpduReceived(
-    _: ProtocolInterface,
-    pdu: avdecc_protocol_mvu_aecpdu_t
-  ) {}
-  public nonisolated func onAcmpduReceived(_: ProtocolInterface, pdu: avdecc_protocol_acmpdu_t) {}
 }
