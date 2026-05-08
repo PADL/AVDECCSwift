@@ -22,7 +22,7 @@ import Logging
 
 /// Mirrors `la::avdecc::logger::Level`. Numeric values match la_avdecc's
 /// enum so we can cross the C++ boundary as a single `UInt8`.
-public enum AvdeccLogLevel: UInt8, Sendable, Comparable {
+public enum LogLevel: UInt8, Sendable, Comparable {
   case trace = 0
   case debug = 1
   case info = 2
@@ -40,7 +40,7 @@ public enum AvdeccLogLevel: UInt8, Sendable, Comparable {
   /// Map to the closest swift-log severity. `.compat` lands on `.notice`
   /// (informational but unusual); `.none` only appears as a filter
   /// setting and never on actual log items.
-  public var swiftLogLevel: Logger.Level {
+  public var swiftLogLevel: Logging.Logger.Level {
     switch self {
     case .trace: .trace
     case .debug: .debug
@@ -56,7 +56,7 @@ public enum AvdeccLogLevel: UInt8, Sendable, Comparable {
 /// Mirrors `la::avdecc::logger::Layer`. Surfaced on each forwarded
 /// log event as the `avdecc.layer` metadata key so consumers can
 /// filter or route by subsystem (e.g. ProtocolInterface vs Controller).
-public enum AvdeccLogLayer: UInt8, Sendable {
+public enum LogLayer: UInt8, Sendable {
   case generic = 0
   case serialization = 1
   case protocolInterface = 2
@@ -98,39 +98,39 @@ public enum AvdeccLogLayer: UInt8, Sendable {
 /// in the forwarder via the captured `Logger.logLevel`. Setting `level`
 /// affects every other observer too, so prefer the most permissive
 /// across all consumers and let swift-log handle finer-grained filters.
-public final class AvdeccLogger: Sendable {
+public final class Logger: Sendable {
   nonisolated(unsafe) let owner: AVDECCSwift.LoggerOwner
 
   /// The destination swift-log Logger. Reassign to redirect output;
   /// the new value takes effect on the next la_avdecc log event.
-  public let logger: Logger
+  public let logger: Logging.Logger
 
   /// Most-permissive level la_avdecc will emit. Backed by the C++ Logger
   /// singleton (no Swift-side storage), so reading and writing are both
   /// thread-safe and the property is `Sendable`-compatible. Setting this
   /// affects the global la_avdecc Logger, so it influences other observers
   /// if any exist — prefer the most permissive across consumers.
-  public var level: AvdeccLogLevel {
-    get { AvdeccLogLevel(rawValue: owner.getLevel()) ?? .info }
+  public var level: LogLevel {
+    get { LogLevel(rawValue: owner.getLevel()) ?? .info }
     set { owner.setLevel(newValue.rawValue) }
   }
 
   public init(
-    forwardingTo logger: Logger,
-    level: AvdeccLogLevel = .info
+    forwardingTo logger: Logging.Logger,
+    level: LogLevel = .info
   ) {
     self.logger = logger
     owner = AVDECCSwift.LoggerOwner.create()
     owner.setLevel(level.rawValue)
 
     // The block captures `self` weakly so that an unreleased
-    // AvdeccLogger doesn't keep itself alive via the la_avdecc
+    // Logger doesn't keep itself alive via the la_avdecc
     // observer registration. Deinit calls owner.close(), which
     // detaches before we're freed.
     owner.setOnLogItem { [weak self] rawLevel, rawLayer, dataPtr, size in
       guard let self else { return }
-      let level = AvdeccLogLevel(rawValue: rawLevel) ?? .info
-      let layer = AvdeccLogLayer(rawValue: rawLayer) ?? .generic
+      let level = LogLevel(rawValue: rawLevel) ?? .info
+      let layer = LogLayer(rawValue: rawLayer) ?? .generic
       let message: String
       if let dataPtr, size > 0 {
         let buf = UnsafeBufferPointer(
