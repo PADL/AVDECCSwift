@@ -34,7 +34,7 @@ public final class Discovery: ProtocolInterfaceObserver, @unchecked Sendable {
     // Route everything through a stderr StreamLogHandler at .trace so
     // both Swift-side and la_avdecc-side log lines surface. swift-log
     // defaults to .info and an opaque default handler on Linux; without
-    // this the AvdeccLogger bridge produces no visible output.
+    // this the AVDECCSwift.Logger bridge produces no visible output.
     LoggingSystem.bootstrap { label in
       var h = StreamLogHandler.standardError(label: label)
       h.logLevel = .trace
@@ -74,10 +74,10 @@ public final class Discovery: ProtocolInterfaceObserver, @unchecked Sendable {
   // Forwards la_avdecc's internal log to swift-log. Must outlive the
   // ProtocolInterface so transport-error / state-machine warnings
   // surface on stderr.
-  private let avdeccLogger: AvdeccLogger
+  private let avdeccLogger: AVDECCSwift.Logger
 
   init(type: ProtocolInterfaceType, interfaceID: String) throws {
-    avdeccLogger = AvdeccLogger(forwardingTo: Logger(label: "avdecc"), level: .debug)
+    avdeccLogger = AVDECCSwift.Logger(forwardingTo: Logging.Logger(label: "avdecc"), level: .debug)
     protocolInterface = try ProtocolInterface(type: type, interfaceID: interfaceID)
     protocolInterface.observer = self
     installShutdownHandlers()
