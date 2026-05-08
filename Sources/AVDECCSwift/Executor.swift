@@ -26,8 +26,8 @@ internal import CxxAVDECC
 /// `ExecutorManager::registerExecutor`, surfaced here as
 /// `code == .internalError` with the std exception's `what()` text in
 /// `message`). Carries the same shape as the other AVDECCSwift error
-/// types — see `AvdeccCapturedError`.
-public struct ExecutorError: AvdeccCapturedError {
+/// types — see `CapturedError`.
+public struct ExecutorError: CapturedError {
   public let code: ProtocolInterfaceErrorCode
   public let message: String
 

@@ -45,20 +45,23 @@ public enum ProtocolInterfaceErrorCode: UInt8, Sendable {
 /// LocalEntity) has its own concrete `Error` type so callers can
 /// `catch let e as ProtocolInterfaceError` without ambiguity, but the
 /// payload is uniform: a typed code plus an optional `what()` string.
-public protocol AvdeccCapturedError: Error, CustomStringConvertible, Sendable {
+public protocol CapturedError: Error, CustomStringConvertible, Sendable {
   var code: ProtocolInterfaceErrorCode { get }
   var message: String { get }
 }
 
-public extension AvdeccCapturedError {
+public extension CapturedError {
   var description: String {
     let label = "\(Self.self).\(code)"
     return message.isEmpty ? label : "\(label): \(message)"
   }
 }
 
+@available(*, deprecated, renamed: "CapturedError")
+public typealias AvdeccCapturedError = CapturedError
+
 /// Error thrown by `ProtocolInterface` factories / sync calls.
-public struct ProtocolInterfaceError: AvdeccCapturedError {
+public struct ProtocolInterfaceError: CapturedError {
   public let code: ProtocolInterfaceErrorCode
   public let message: String
 

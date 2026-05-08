@@ -25,8 +25,8 @@ internal import CxxAVDECC
 /// `.duplicateLocalEntityID` etc.) because la_avdecc's
 /// `registerLocalEntity` throws via the ProtocolInterface::Exception
 /// hierarchy. Carries the same shape as the other AVDECCSwift error
-/// types — see `AvdeccCapturedError`.
-public struct LocalEntityError: AvdeccCapturedError {
+/// types — see `CapturedError`.
+public struct LocalEntityError: CapturedError {
   public let code: ProtocolInterfaceErrorCode
   public let message: String
 
