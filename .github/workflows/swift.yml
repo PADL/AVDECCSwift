@@ -13,7 +13,8 @@ jobs:
         uses: actions/checkout@v4
       - name: 🔍 Xcode Select
         run: |
-          XCODE_PATH=`mdfind "kMDItemCFBundleIdentifier == 'com.apple.dt.Xcode' && kMDItemVersion = '16.*'" -onlyin /Applications | head -1`
+          XCODE_PATH=`mdfind "kMDItemCFBundleIdentifier == 'com.apple.dt.Xcode' && kMDItemVersion = '26.*'" -onlyin /Applications | head -1`
+          [ -z "$XCODE_PATH" ] && echo "Xcode not found — update version filter" && exit 1
           echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> $GITHUB_ENV
       - name: Fix permissions
         run: chown -R $(id -u):$(id -g) $PWD
