@@ -36,10 +36,14 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
+
+#include <dispatch/dispatch.h>
 
 #include <la/avdecc/executor.hpp>
 #include <la/avdecc/logger.hpp>
@@ -166,11 +170,48 @@ void AVDECCSwift_ExecutorOwner_release(AVDECCSwift::ExecutorOwner* p) noexcept;
 
 namespace AVDECCSwift {
 
-/// Owns an la_avdecc dispatch-queue executor + ExecutorManager registration.
-/// Necessary because none of la_avdecc's executor classes (Executor,
-/// ExecutorManager, ExecutorWithDispatchQueue) reach Swift's C++ importer
-/// — they use std::function / std::thread::id / templated members the
-/// importer skips, and the factories return move-only Executor::UniquePointer.
+/// Owns a libdispatch-backed la_avdecc executor + ExecutorManager
+/// registration. Necessary because none of la_avdecc's executor classes
+/// (Executor, ExecutorManager, ExecutorProxy) reach Swift's C++ importer —
+/// they use std::function / std::thread::id / templated members the importer
+/// skips, and the factories return move-only Executor::UniquePointer.
+///
+/// We register an `ExecutorProxy` rather than `ExecutorWithDispatchQueue`
+/// so the work runs on a libdispatch serial queue instead of a dedicated
+/// std::thread + condvar. That lets the executor participate in the host's
+/// QoS scheduling and removes one kernel thread per EndStation — which is
+/// the whole point of the swap; with N EndStations on one process we drop
+/// N kernel threads.
+///
+/// Contract notes for the four ExecutorProxy entry points:
+///  - `pushJob`/`flush`/`terminate` map cleanly onto dispatch_async /
+///    dispatch_sync. The serial queue gives us the FIFO drain order the
+///    Executor interface promises.
+///  - `getExecutorThread()` returns the empty `std::thread::id{}`. The
+///    Executor interface uses this only to short-circuit re-entrant
+///    `ExecutorManager::waitJobResponse` and
+///    `ControllerImpl::runJobOnExecutorAndWait` calls into a synchronous
+///    inline invocation. libdispatch deliberately does not pin a serial
+///    queue to a fixed kernel thread, so there is no honest tid we can
+///    return — and `ExecutorManagerImpl::registerExecutor` snapshots the
+///    value once at registration anyway, so a per-job cache would not
+///    actually be consulted later. Returning `{}` is safe (no real tid
+///    ever compares equal, so the short-circuit simply never fires); it
+///    means every wait-style call takes the queued path and waits on a
+///    promise.
+///
+///    The single resulting constraint for callers: a Swift handler that
+///    is itself running on this executor must not synchronously invoke
+///    a la_avdecc API that internally posts a job to the same executor
+///    and waits on it (`runJobOnExecutorAndWait`, `waitJobResponse`).
+///    Doing so would enqueue a second job behind the running one on a
+///    serial queue and then wait for it from the first job — a classic
+///    self-deadlock. The current libavdecc tree only calls
+///    `runJobOnExecutorAndWait` from top-level public APIs
+///    (`deserializeControlledEntitiesFromJsonNetworkState`,
+///    `removeVirtualEntity`, etc.) which are invoked from user threads,
+///    not from inside jobs, so this is a constraint on Swift application
+///    code rather than something libavdecc itself can trigger.
 class SWIFT_SHARED_REFERENCE(AVDECCSwift_ExecutorOwner_retain,
                              AVDECCSwift_ExecutorOwner_release)
     ExecutorOwner final : public IntrusiveReferenceCounted<ExecutorOwner> {
@@ -185,31 +226,156 @@ public:
   static ExecutorOwner* create(std::string const& name,
                                CapturedException& outErr) noexcept {
     return invokeCapturingException(outErr, [&]() -> ExecutorOwner* {
-      auto exec = la::avdecc::ExecutorWithDispatchQueue::create(name);
-      auto wrapper = la::avdecc::ExecutorManager::getInstance().registerExecutor(
-          name, std::move(exec));
-      return new ExecutorOwner(name, std::move(wrapper));
+      auto state = std::make_shared<DispatchState>();
+
+      // Darwin: USER_INITIATED matches the prior
+      // ExecutorWithDispatchQueue::create(..., ThreadPriority::Highest)
+      // intent — protocol PDU processing should not get scheduled behind
+      // background work. swift-corelibs-libdispatch on Linux doesn't ship
+      // the QOS_CLASS_* enum (no <sys/qos.h>); fall back to a plain serial
+      // queue there, which inherits the calling thread's priority.
+#if __has_include(<sys/qos.h>)
+      auto attr = dispatch_queue_attr_make_with_qos_class(
+          DISPATCH_QUEUE_SERIAL, QOS_CLASS_USER_INITIATED, 0);
+#else
+      // DISPATCH_QUEUE_SERIAL is a NULL macro; C++ refuses the implicit
+      // long→pointer conversion under strict modes, so name the type.
+      dispatch_queue_attr_t attr = DISPATCH_QUEUE_SERIAL;
+#endif
+      state->queue = dispatch_queue_create(name.c_str(), attr);
+
+      // Tag the queue with a key whose value is the state pointer. Lambdas
+      // use `dispatch_get_specific(key) == key` to detect "am I currently
+      // running on this queue?" — needed by flush()/terminate() to avoid
+      // dispatch_sync-on-self deadlock when a job calls them.
+      dispatch_queue_set_specific(state->queue, state.get(), state.get(),
+                                  nullptr);
+
+      using Job = la::avdecc::Executor::Job;
+
+      auto pushJobProxy = [state](Job&& job) noexcept {
+        // Serialize against flush/terminate via enqueueLock — mirrors
+        // ExecutorWithDispatchQueueImpl::pushJob. Without the lock, a
+        // pushJob racing with terminate(true) could land a block onto the
+        // queue after terminate's drain returned, leaving a stray block
+        // referencing la_avdecc captures whose lifetime is ending.
+        std::lock_guard<std::mutex> lg(state->enqueueLock);
+        if (state->terminated.load(std::memory_order_acquire)) return;
+        // Block captures are by-value-copy; std::function is copyable but
+        // boxing in a shared_ptr avoids re-copying the job target.
+        auto sharedJob = std::make_shared<Job>(std::move(job));
+        dispatch_async(state->queue, ^{
+          // In-block check covers terminate(flushJobs=false): the drain
+          // doesn't run, so already-queued blocks must bail at the head
+          // rather than execute against a torn-down la_avdecc.
+          if (state->terminated.load(std::memory_order_acquire)) return;
+          la::avdecc::utils::invokeProtectedHandler(*sharedJob);
+        });
+      };
+
+      auto flushProxy = [state]() noexcept {
+        // Serial-queue ordering already guarantees prior jobs are complete
+        // by the time *this* job runs, so a flush-from-job is a no-op (and
+        // dispatch_sync onto our own queue would deadlock).
+        if (dispatch_get_specific(state.get()) == state.get()) return;
+        // Hold the enqueueLock across the drain so concurrent pushJobs
+        // block until the queue is empty — matches the original
+        // ExecutorWithDispatchQueueImpl::flush semantics.
+        std::lock_guard<std::mutex> lg(state->enqueueLock);
+        dispatch_sync(state->queue, ^{});
+      };
+
+      auto terminateProxy = [state](bool flushJobs) noexcept {
+        std::lock_guard<std::mutex> lg(state->enqueueLock);
+        if (flushJobs &&
+            dispatch_get_specific(state.get()) != state.get()) {
+          dispatch_sync(state->queue, ^{});
+        }
+        // Set terminated last: pushJob (locked-out above) sees this on
+        // the next acquire and silently drops, and any blocks still in
+        // the queue (only possible with flushJobs=false) bail at the
+        // in-block check above.
+        state->terminated.store(true, std::memory_order_release);
+      };
+
+      // See class comment: returning {} disables the inline short-circuit
+      // in waitJobResponse / runJobOnExecutorAndWait. ExecutorManager
+      // snapshots this once at registration anyway, so a per-job cache
+      // would be ignored.
+      auto getThreadProxy = []() noexcept -> std::thread::id {
+        return std::thread::id{};
+      };
+
+      auto exec = la::avdecc::ExecutorProxy::create(
+          pushJobProxy, flushProxy, terminateProxy, getThreadProxy);
+      auto wrapper = la::avdecc::ExecutorManager::getInstance()
+          .registerExecutor(name, std::move(exec));
+      return new ExecutorOwner(name, std::move(wrapper), std::move(state));
     });
   }
 
-  /// Idempotent early teardown. Drops the la_avdecc executor + its manager
-  /// registration before __cxa_finalize so the manager's destructor doesn't
-  /// run with a dangling wrapper. The ExecutorOwner itself stays alive
-  /// until all Swift references are released.
-  void close() noexcept { wrapper_.reset(); }
+  /// Idempotent early teardown. Drains and terminates the la_avdecc
+  /// executor (so any blocks already on the queue finish before
+  /// la_avdecc's higher-level objects can tear down their captures),
+  /// then drops the ExecutorManager registration. ExecutorProxy's dtor
+  /// is empty (unlike ExecutorWithDispatchQueue's), so the drain must
+  /// happen here rather than implicitly via wrapper_.reset().
+  ///
+  /// The ExecutorOwner itself stays alive until all Swift references
+  /// are released; the dispatch queue likewise stays alive (held by
+  /// libdispatch internally) until the drain we just did completes,
+  /// which it has by the time this function returns.
+  void close() noexcept {
+    if (state_ && !state_->terminated.load(std::memory_order_acquire)) {
+      std::lock_guard<std::mutex> lg(state_->enqueueLock);
+      if (dispatch_get_specific(state_.get()) != state_.get()) {
+        dispatch_sync(state_->queue, ^{});
+      }
+      state_->terminated.store(true, std::memory_order_release);
+    }
+    wrapper_.reset();
+  }
 
   std::string const& name() const noexcept { return name_; }
 
 private:
+  /// Shared state captured by every ExecutorProxy lambda and every block
+  /// dispatched onto the queue. Held by std::shared_ptr so a block still
+  /// in flight when ExecutorOwner is destroyed keeps the queue + flags
+  /// alive until it returns.
+  struct DispatchState {
+    dispatch_queue_t queue = nullptr;
+    std::atomic<bool> terminated{false};
+    /// Serializes pushJob against flush/terminate. Counterpart of
+    /// ExecutorWithDispatchQueueImpl::_enqueueLock — without it, a
+    /// pushJob can land a block onto the queue after a concurrent
+    /// terminate's drain has already returned. Non-recursive: our
+    /// flush/terminate inline the drain rather than call each other,
+    /// so no thread re-enters.
+    std::mutex enqueueLock;
+
+    ~DispatchState() noexcept {
+      if (queue) {
+        // User-side refcount drop. libdispatch keeps the queue alive
+        // internally until any still-pending blocks complete.
+        dispatch_release(queue);
+      }
+    }
+  };
+
   friend class IntrusiveReferenceCounted<ExecutorOwner>;
   ExecutorOwner(
       std::string name,
-      la::avdecc::ExecutorManager::ExecutorWrapper::UniquePointer wrapper) noexcept
-      : name_(std::move(name)), wrapper_(std::move(wrapper)) {}
-  ~ExecutorOwner() noexcept = default;
+      la::avdecc::ExecutorManager::ExecutorWrapper::UniquePointer wrapper,
+      std::shared_ptr<DispatchState> state) noexcept
+      : name_(std::move(name))
+      , wrapper_(std::move(wrapper))
+      , state_(std::move(state)) {}
+  ~ExecutorOwner() noexcept { close(); }
 
   std::string name_;
   la::avdecc::ExecutorManager::ExecutorWrapper::UniquePointer wrapper_;
+  std::shared_ptr<DispatchState> state_;
 };
 
 /* ------------------------------------------------------------------- */
