@@ -477,19 +477,21 @@ inline void _pduDestroy(void* p) noexcept {
   if (p) _pduDeleter<PDU>()(static_cast<PDU*>(p));
 }
 
+inline la::networkInterface::MacAddress _macFromBytes(uint8_t const mac[6]) noexcept {
+  return la::networkInterface::MacAddress{mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]};
+}
+
 // ---- ADP --------------------------------------------------------------------
 inline void* adpdu_create() noexcept { return _pduCreate<Adpdu>(); }
 inline void adpdu_destroy(void* p) noexcept { _pduDestroy<Adpdu>(p); }
 inline void adpdu_setSrcAddress(void* p, uint8_t const mac[6]) noexcept {
-  static_cast<Adpdu*>(p)->setSrcAddress(la::networkInterface::MacAddress{
-      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]});
+  static_cast<Adpdu*>(p)->setSrcAddress(_macFromBytes(mac));
 }
 inline void adpdu_setDestAddressMulticast(void* p) noexcept {
   static_cast<Adpdu*>(p)->setDestAddress(Adpdu::Multicast_Mac_Address);
 }
 inline void adpdu_setDestAddress(void* p, uint8_t const mac[6]) noexcept {
-  static_cast<Adpdu*>(p)->setDestAddress(la::networkInterface::MacAddress{
-      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]});
+  static_cast<Adpdu*>(p)->setDestAddress(_macFromBytes(mac));
 }
 inline void adpdu_setMessageType(void* p, uint8_t v) noexcept {
   static_cast<Adpdu*>(p)->setMessageType(la::avdecc::protocol::AdpMessageType{v});
@@ -548,15 +550,13 @@ inline void adpdu_setAssociationID(void* p, uint64_t v) noexcept {
 inline void* acmpdu_create() noexcept { return _pduCreate<Acmpdu>(); }
 inline void acmpdu_destroy(void* p) noexcept { _pduDestroy<Acmpdu>(p); }
 inline void acmpdu_setSrcAddress(void* p, uint8_t const mac[6]) noexcept {
-  static_cast<Acmpdu*>(p)->setSrcAddress(la::networkInterface::MacAddress{
-      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]});
+  static_cast<Acmpdu*>(p)->setSrcAddress(_macFromBytes(mac));
 }
 inline void acmpdu_setDestAddressMulticast(void* p) noexcept {
   static_cast<Acmpdu*>(p)->setDestAddress(Acmpdu::Multicast_Mac_Address);
 }
 inline void acmpdu_setDestAddress(void* p, uint8_t const mac[6]) noexcept {
-  static_cast<Acmpdu*>(p)->setDestAddress(la::networkInterface::MacAddress{
-      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]});
+  static_cast<Acmpdu*>(p)->setDestAddress(_macFromBytes(mac));
 }
 inline void acmpdu_setMessageType(void* p, uint8_t v) noexcept {
   static_cast<Acmpdu*>(p)->setMessageType(la::avdecc::protocol::AcmpMessageType{v});
@@ -580,8 +580,7 @@ inline void acmpdu_setListenerUniqueID(void* p, uint16_t v) noexcept {
   static_cast<Acmpdu*>(p)->setListenerUniqueID(v);
 }
 inline void acmpdu_setStreamDestAddress(void* p, uint8_t const mac[6]) noexcept {
-  static_cast<Acmpdu*>(p)->setStreamDestAddress(la::networkInterface::MacAddress{
-      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]});
+  static_cast<Acmpdu*>(p)->setStreamDestAddress(_macFromBytes(mac));
 }
 inline void acmpdu_setConnectionCount(void* p, uint16_t v) noexcept {
   static_cast<Acmpdu*>(p)->setConnectionCount(v);
@@ -617,12 +616,10 @@ inline void aemAecpdu_destroy(void* p) noexcept {
   if (p) _aemAecpduDeleter()(static_cast<AemAecpdu*>(p));
 }
 inline void aecpdu_setSrcAddress(void* p, uint8_t const mac[6]) noexcept {
-  static_cast<Aecpdu*>(p)->setSrcAddress(la::networkInterface::MacAddress{
-      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]});
+  static_cast<Aecpdu*>(p)->setSrcAddress(_macFromBytes(mac));
 }
 inline void aecpdu_setDestAddress(void* p, uint8_t const mac[6]) noexcept {
-  static_cast<Aecpdu*>(p)->setDestAddress(la::networkInterface::MacAddress{
-      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]});
+  static_cast<Aecpdu*>(p)->setDestAddress(_macFromBytes(mac));
 }
 inline void aecpdu_setStatus(void* p, uint8_t v) noexcept {
   static_cast<Aecpdu*>(p)->setStatus(la::avdecc::protocol::AecpStatus{v});
@@ -1984,10 +1981,8 @@ public:
           la::avdecc::entity::ControllerCapabilities{
               la::avdecc::entity::ControllerCapability::Implemented};
 
-      la::networkInterface::MacAddress macAddr{mac[0], mac[1], mac[2],
-                                               mac[3], mac[4], mac[5]};
       la::avdecc::entity::Entity::InterfaceInformation iface{};
-      iface.macAddress = macAddr;
+      iface.macAddress = _macFromBytes(mac);
       // Temporary so the static constexpr GlobalAvbInterfaceIndex isn't
       // ODR-used in a way that needs its out-of-class definition.
       auto const idx = la::avdecc::entity::model::AvbInterfaceIndex{
