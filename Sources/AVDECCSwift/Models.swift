@@ -785,6 +785,9 @@ public struct AudioUnitDescriptor: @unchecked Sendable, CustomStringConvertible 
 
   public var objectName: String { String(value.objectName.str()) }
   public var clockDomainIndex: UInt16 { value.clockDomainIndex }
+  public var localizedDescription: LocalizedStringReference {
+    LocalizedStringReference(rawValue: value.localizedDescription.getValue())
+  }
   public var numberOfStreamInputPorts: UInt16 { value.numberOfStreamInputPorts }
   public var baseStreamInputPort: UInt16 { value.baseStreamInputPort }
   public var numberOfStreamOutputPorts: UInt16 { value.numberOfStreamOutputPorts }
