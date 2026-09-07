@@ -251,10 +251,19 @@ public struct StreamInfoFlags: OptionSet, Sendable, Hashable {
   public static let supportsEncrypted = StreamInfoFlags(rawValue: 1 << 4)
   public static let encryptedPdu = StreamInfoFlags(rawValue: 1 << 5)
   public static let talkerFailed = StreamInfoFlags(rawValue: 1 << 6)
+  /// Milan 1.3 name for bit 6.
+  public static let registeringFailed = StreamInfoFlags(rawValue: 1 << 6)
   public static let noSrp = StreamInfoFlags(rawValue: 1 << 8)
   public static let ipFlagsValid = StreamInfoFlags(rawValue: 1 << 19)
   public static let ipSrcPortValid = StreamInfoFlags(rawValue: 1 << 20)
   public static let ipDstPortValid = StreamInfoFlags(rawValue: 1 << 21)
+  public static let streamVlanIDValid = StreamInfoFlags(rawValue: 1 << 25)
+  public static let connected = StreamInfoFlags(rawValue: 1 << 26)
+  public static let msrpFailureValid = StreamInfoFlags(rawValue: 1 << 27)
+  public static let streamDestMacValid = StreamInfoFlags(rawValue: 1 << 28)
+  public static let msrpAccLatValid = StreamInfoFlags(rawValue: 1 << 29)
+  public static let streamIDValid = StreamInfoFlags(rawValue: 1 << 30)
+  public static let streamFormatValid = StreamInfoFlags(rawValue: 1 << 31)
 }
 
 /// Milan protocol features (Milan-2019 §7.4.1, MILAN_INFO_FEATURES_FLAGS).
@@ -265,6 +274,10 @@ public struct MilanInfoFeaturesFlags: OptionSet, Sendable, Hashable {
   public init(rawValue: UInt32) { self.rawValue = rawValue }
 
   public static let redundancy = MilanInfoFeaturesFlags(rawValue: 1 << 0)
+  public static let talkerDynamicMappingsWhileRunning = MilanInfoFeaturesFlags(rawValue: 1 << 1)
+  /// BIND_STREAM / UNBIND_STREAM / GET_STREAM_INPUT_INFO_EX are supported (Milan 1.3).
+  public static let mvuBinding = MilanInfoFeaturesFlags(rawValue: 1 << 2)
+  public static let talkerSignalPresence = MilanInfoFeaturesFlags(rawValue: 1 << 3)
 }
 
 /// Packed `major.minor.patch.build` Milan version word (1 byte each, in
@@ -816,6 +829,14 @@ public struct JackDescriptor: @unchecked Sendable, CustomStringConvertible {
 }
 
 /// ClockSourceDescriptor (IEEE 1722.1-2013 §7.2.9).
+/// CLOCK_SOURCE descriptor clock_source_type (IEEE 1722.1-2021 Table 7.32).
+public enum ClockSourceType: UInt16, Sendable {
+  case `internal` = 0
+  case external = 1
+  case inputStream = 2
+  case expansion = 0xFFFF
+}
+
 public struct ClockSourceDescriptor: @unchecked Sendable, CustomStringConvertible {
   let value: la.avdecc.entity.model.ClockSourceDescriptor
 
@@ -824,6 +845,10 @@ public struct ClockSourceDescriptor: @unchecked Sendable, CustomStringConvertibl
   }
 
   public var objectName: String { String(value.objectName.str()) }
+  public var clockSourceType: ClockSourceType {
+    ClockSourceType(rawValue: UInt16(truncatingIfNeeded: value.clockSourceType.rawValue)) ?? .expansion
+  }
+
   public var clockSourceIdentifier: UniqueIdentifier {
     UniqueIdentifier(value.clockSourceIdentifier)
   }
@@ -1263,6 +1288,9 @@ public struct StreamInfo: Sendable, Hashable, CustomStringConvertible {
   /// Six-byte stream destination MAC (multicast for talker streams,
   /// derived from the stream class and reservation for AVB).
   public var streamDestMac: [UInt8]
+  /// MSRP failure code and bridge ID, valid when `msrpFailureValid` is set.
+  public var msrpFailureCode: UInt8
+  public var msrpFailureBridgeID: UInt64
 
   public init(
     streamFormat: StreamFormat = StreamFormat(format: 0),
@@ -1270,7 +1298,9 @@ public struct StreamInfo: Sendable, Hashable, CustomStringConvertible {
     msrpAccumulatedLatency: UInt32 = 0,
     streamVlanID: UInt16 = 0,
     streamInfoFlags: StreamInfoFlags = [],
-    streamDestMac: [UInt8] = [0, 0, 0, 0, 0, 0]
+    streamDestMac: [UInt8] = [0, 0, 0, 0, 0, 0],
+    msrpFailureCode: UInt8 = 0,
+    msrpFailureBridgeID: UInt64 = 0
   ) {
     self.streamFormat = streamFormat
     self.streamID = streamID
@@ -1278,6 +1308,8 @@ public struct StreamInfo: Sendable, Hashable, CustomStringConvertible {
     self.streamVlanID = streamVlanID
     self.streamInfoFlags = streamInfoFlags
     self.streamDestMac = streamDestMac
+    self.msrpFailureCode = msrpFailureCode
+    self.msrpFailureBridgeID = msrpFailureBridgeID
   }
 
   /// Lift from the borrowed C++ value handed back through a callback.
@@ -1290,6 +1322,8 @@ public struct StreamInfo: Sendable, Hashable, CustomStringConvertible {
     streamInfoFlags = StreamInfoFlags(rawValue: value.streamInfoFlags.value())
     let mac = value.streamDestMac
     streamDestMac = [mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]]
+    msrpFailureCode = UInt8(truncatingIfNeeded: value.msrpFailureCode.rawValue)
+    msrpFailureBridgeID = value.msrpFailureBridgeID
   }
 
   public var description: String {
