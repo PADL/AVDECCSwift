@@ -371,3 +371,63 @@ public final class LocalEntityEventStream: LocalEntityDelegate, Sendable {
   public func onAemAecpUnsolicitedReceived(_: LocalEntity, id: UniqueIdentifier, sequenceID: UInt16) { yield(.aemAecpUnsolicitedReceived(id, sequenceID: sequenceID)) }
   public func onMvuAecpUnsolicitedReceived(_: LocalEntity, id: UniqueIdentifier, sequenceID: UInt16) { yield(.mvuAecpUnsolicitedReceived(id, sequenceID: sequenceID)) }
 }
+
+public extension LocalEntityEvent {
+  /// The remote entity an event concerns; listener-side ACMP responses report the
+  /// listener, talker-side ones the talker. nil for events with no entity.
+  var entityID: UniqueIdentifier? {
+    switch self {
+    case .transportError:
+      UniqueIdentifier?.none
+    case let .entityOnline(id), let .entityUpdated(id), let .entityOffline(id),
+         let .entityIdentifyNotification(id), let .deregisteredFromUnsolicitedNotifications(id):
+      id
+    case let .controllerConnectResponse(state, _), let .controllerDisconnectResponse(state, _),
+         let .listenerConnectResponse(state, _), let .listenerDisconnectResponse(state, _),
+         let .listenerStreamStateResponse(state, _):
+      state.listenerStream.entityID
+    case let .talkerStreamStateResponse(state, _):
+      state.talkerStream.entityID
+    case let .entityAcquired(id, _, _, _), let .entityReleased(id, _, _, _),
+         let .entityLocked(id, _, _, _), let .entityUnlocked(id, _, _, _):
+      id
+    case let .configurationChanged(id, _), let .associationIDChanged(id, _),
+         let .clockSourceChanged(id, _, _):
+      id
+    case let .streamInputFormatChanged(id, _, _), let .streamOutputFormatChanged(id, _, _),
+         let .streamPortInputAudioMappingsChanged(id, _, _),
+         let .streamPortOutputAudioMappingsChanged(id, _, _),
+         let .streamPortInputAudioMappingsAdded(id, _, _),
+         let .streamPortOutputAudioMappingsAdded(id, _, _),
+         let .streamPortInputAudioMappingsRemoved(id, _, _),
+         let .streamPortOutputAudioMappingsRemoved(id, _, _):
+      id
+    case let .streamInputInfoChanged(id, _, _, _), let .streamOutputInfoChanged(id, _, _, _),
+         let .streamInputStarted(id, _), let .streamOutputStarted(id, _),
+         let .streamInputStopped(id, _), let .streamOutputStopped(id, _),
+         let .maxTransitTimeChanged(id, _, _):
+      id
+    case let .entityNameChanged(id, _), let .entityGroupNameChanged(id, _),
+         let .descriptorNameChanged(id, _, _, _, _):
+      id
+    case let .audioUnitSamplingRateChanged(id, _, _), let .videoClusterSamplingRateChanged(id, _, _),
+         let .sensorClusterSamplingRateChanged(id, _, _):
+      id
+    case let .entityCountersChanged(id, _, _), let .avbInterfaceCountersChanged(id, _, _, _),
+         let .clockDomainCountersChanged(id, _, _, _), let .streamInputCountersChanged(id, _, _, _),
+         let .streamOutputCountersChanged(id, _, _, _), let .avbInfoChanged(id, _, _),
+         let .asPathChanged(id, _, _):
+      id
+    case let .controlValuesChanged(id, _, _), let .memoryObjectLengthChanged(id, _, _, _),
+         let .operationStatus(id, _, _, _, _), let .systemUniqueIDChanged(id, _, _),
+         let .mediaClockReferenceInfoChanged(id, _, _, _):
+      id
+    case let .bindStream(id, _, _, _), let .unbindStream(id, _), let .streamInputInfoExChanged(id, _, _):
+      id
+    case let .aecpRetry(id), let .aecpTimeout(id), let .aecpUnexpectedResponse(id),
+         let .aecpResponseTime(id, _), let .aemAecpUnsolicitedReceived(id, _),
+         let .mvuAecpUnsolicitedReceived(id, _):
+      id
+    }
+  }
+}

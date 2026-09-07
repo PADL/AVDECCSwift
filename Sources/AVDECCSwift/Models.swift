@@ -854,12 +854,28 @@ public struct ClockSourceDescriptor: @unchecked Sendable, CustomStringConvertibl
   }
 
   public var clockSourceLocationIndex: UInt16 { value.clockSourceLocationIndex }
+  public var localizedDescription: LocalizedStringReference {
+    LocalizedStringReference(rawValue: value.localizedDescription.getValue())
+  }
 
   public var description: String {
     "ClockSourceDescriptor(name: \"\(objectName)\"" +
       ", identifier: \(clockSourceIdentifier)" +
       ", locationIndex: \(clockSourceLocationIndex))"
   }
+}
+
+/// A reference into a locale's STRINGS descriptors (IEEE 1722.1-2013 §7.3.6): bits 15..3
+/// select the STRINGS descriptor relative to the locale's base, bits 2..0 the string.
+public struct LocalizedStringReference: Sendable, Hashable {
+  public let rawValue: UInt16
+
+  public init(rawValue: UInt16) { self.rawValue = rawValue }
+
+  public static let none = LocalizedStringReference(rawValue: 0xFFFF)
+  public var isValid: Bool { rawValue != 0xFFFF }
+  /// Index across the locale's strings, seven per STRINGS descriptor.
+  public var globalOffset: UInt16 { (rawValue >> 3) * 7 + (rawValue & 0x7) }
 }
 
 /// MemoryObjectDescriptor (IEEE 1722.1-2013 §7.2.10).
