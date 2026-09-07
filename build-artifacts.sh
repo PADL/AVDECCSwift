@@ -29,6 +29,9 @@ if [ "$PLATFORM" == "mac" ]; then
     BUILDLDFLAGS_SHARED=""
     BUILDLDFLAGS_STATIC=""
 else
+    # Prefer the snap cmake (>= 3.29, as required by la_avdecc) over the older
+    # distro cmake in /usr/bin.
+    export PATH="/snap/bin:$PATH"
     ARCHS="-arch ${ARCH}"
     SOSUFFIX=so
     CONFIG=release
